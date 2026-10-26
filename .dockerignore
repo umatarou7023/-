@@ -1,0 +1,8 @@
+.git
+.venv
+data
+beta-data
+__pycache__
+*.xlsx
+.env
+tests

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>日別シフト・ベータ｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/daily.js" defer></script></head>
+<body><main>
+  <header><span class="badge">管理者用 · 日別表のベータ版</span><h1>希望を確認して、<br>日別シフトへ。</h1><p>キッチン8人・ホール10人。全員の希望を残したまま、<br>反映する人と休憩を確認してからExcelのコピーに出力します。</p><a href="/">提出リンク・月別表の管理画面へ</a></header>
+  <aside>Book3型の表向けです。別の形式には推測で書き込みません。実際の勤務表は使わず、コピーで試してください。Excelでの黒い勤務帯・合計の再計算は、出力後に確認が必要です。</aside>
+  <section>
+    <h2><span class="step">1</span>スタッフ一覧を登録する</h2>
+    <p>1行に1人、普段のスタッフ一覧と同じ順に入力します。同じ開始時刻ならこの順に並びます。提出時刻で優先順位は決めません。</p>
+    <p class="small">スタッフ一覧タブをまだ受け取っていないため、ベータではここで登録します。キッチン・ホールの所属もこの一覧で判断します。</p>
+    <div class="grid equal"><label>キッチン（一覧の順）<textarea id="kitchen" rows="6" placeholder="山田 太郎&#10;鈴木 一郎"></textarea></label><label>ホール（一覧の順）<textarea id="hall" rows="6" placeholder="佐藤 花子"></textarea></label></div>
+    <button id="save-roster" type="button">スタッフ一覧を保存</button>
+    <p class="small" id="roster-note"></p>
+  </section>
+  <section>
+    <h2><span class="step">2</span>対象日の提出を読み込む</h2>
+    <label>反映する日付<input id="day" type="date" required></label>
+    <button id="load" type="button">対象日の候補を読み込む</button>
+    <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。</p>
+    <p class="small">日付を変えたり、候補を読み込み直したりすると、対象者の選択と休憩の指定はリセットされます。</p>
+    <div id="candidate-area" hidden>
+      <p id="capacity" role="status"></p>
+      <p class="small">上限を超えた場合は、反映しない人のチェックを外してください。外した人の提出は残ります。「休憩なし」も管理者が確認して選びます。</p>
+      <div class="table-wrap"><table><thead><tr><th>反映</th><th>所属</th><th>氏名</th><th>勤務希望</th><th>休憩の確認</th><th>休憩開始</th><th>休憩終了</th></tr></thead><tbody id="candidates"></tbody></table></div>
+    </div>
+  </section>
+  <section>
+    <h2><span class="step">3</span>Excelを選んで確認する</h2>
+    <div class="grid"><label>Excelのコピー（.xlsx）<input id="file" type="file" accept=".xlsx"></label><label>反映先シート<select id="sheet"><option value="">Excelを選んでください</option></select></label></div>
+    <button id="sample" type="button" class="secondary">対象日の日別お試しExcelをダウンロード</button>
+    <label class="check"><input type="checkbox" id="date-confirmed">選んだシートが対象日の表であることを確認しました</label>
+    <p class="small">Excelの日付と対象日が違う場合は停止します。日付が未設定のコピーでは警告を出します。日付のセルは変更しないので、Excel側で正しい日付を設定してください。</p>
+    <p><strong>未使用枠の名前・勤務時間・休憩時間は空欄に戻します。</strong>変更・消去する値は下の確認表にすべて表示し、既存の値がある場合は許可を求めます。</p>
+    <button id="preview" type="button">並び順・反映セルを確認する →</button>
+  </section>
+  <div id="status" role="status" aria-live="polite" hidden></div>
+  <section id="result" hidden>
+    <h2><span class="step">4</span>確認してコピーを出力</h2>
+    <p id="warnings"></p><p id="excluded"></p>
+    <div class="table-wrap"><table><thead><tr><th>所属</th><th>氏名</th><th>勤務</th><th>休憩</th><th>名前のセル</th></tr></thead><tbody id="placements"></tbody></table></div>
+    <h3>変更・消去するセル</h3>
+    <div class="table-wrap"><table><thead><tr><th>対象者・枠</th><th>セル</th><th>現在の値</th><th>反映する値</th></tr></thead><tbody id="updates"></tbody></table></div>
+    <label class="check"><input id="overwrite" type="checkbox">色付きのセルにある既存の値を変更・消去することを確認しました</label>
+    <p class="small">数式、勤務帯の表示設定、プルダウン、外部リンクは書き換えず、入力欄だけを更新します。外部リンク先の動作やExcelの再計算結果は別途確認が必要です。</p>
+    <button id="download" type="button">反映済みExcelをダウンロード</button>
+  </section>
+  <footer>これはベータ版です。希望から採用する人は管理者が選びます。必要人数・休憩のルール・勤務の確定を自動判断しません。</footer>
+</main></body></html>

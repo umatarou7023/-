@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.xlsx
+!sample.xlsx
+!beta-sample-2026-11.xlsx
+!daily-beta-sample-2026-11-20.xlsx
+data/
+beta-data/
+.env

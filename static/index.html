@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>シフト便｜LINEからExcelへ</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><span class="badge">バイトのシフト管理 · 管理者用</span><h1>シフト便<span>LINEで集めて、Excelへ。</span></h1><p>グループにリンクを送るだけ。スタッフがブラウザで提出した<br>シフト希望を、いつものExcelへ反映できます。</p></header>
+    <aside id="mode-note">利用設定を読み込んでいます…</aside>
+    <aside><strong>名前を後から入れる日別表（Book3型）を使う場合：</strong><br><a href="/daily">キッチン8人・ホール10人のベータ管理画面へ →</a><br>この下は、最初から氏名が並んだ月別表用の画面です。</aside>
+    <section>
+      <h2>グループLINEに提出リンクを送る</h2>
+      <p>次のリンクをグループに貼ってください。スタッフはLINEから開いて提出できます。</p>
+      <label>スタッフ用リンク<input id="invite-url" readonly></label>
+      <button type="button" id="copy-link" class="secondary">リンクをコピー</button>
+      <button type="button" id="open-form" class="secondary">提出画面を試す</button>
+      <button type="button" id="logout" class="secondary" hidden>ログアウト</button>
+      <p class="small">リンクを知る人が提出できます。スタッフの本人認証はありません。リンクはグループ内で管理してください。</p>
+    </section>
+    <form id="form">
+      <section>
+        <h2><span class="step">1</span>反映先のExcelを選ぶ</h2>
+        <p>バイト先のPCでこの管理画面を開き、そのPCにあるファイルを選んでください。</p>
+        <div class="grid">
+          <label>対象月<input type="month" id="month" required></label>
+          <label>Excelファイル（.xlsx / 8MBまで）<input type="file" id="file" accept=".xlsx" required></label>
+        </div>
+        <p class="small">試しに使う場合は <button type="button" id="sample" class="link">対象月のお試しExcelをダウンロード</button> して選んでください。</p>
+        <div class="grid settings">
+          <label>反映先シート<select id="sheet" required><option value="">Excelを選ぶと表示されます</option></select></label>
+          <label>日付がある行<input type="number" id="header-row" min="1" max="9999" value="1" required></label>
+          <label>氏名がある列<input id="name-col" value="A" pattern="[A-Za-z]{1,3}" required></label>
+          <label>氏名が始まる行<input type="number" id="first-name-row" min="2" max="10000" value="2" required></label>
+          <label>日付が始まる列<input id="date-col" value="B" pattern="[A-Za-z]{1,3}" required></label>
+        </div>
+        <p class="small">初期設定は「A列に氏名、1行目のB列から日付、2行目からスタッフ」の表です。日付はExcelの日付、日だけの数字、10/20、2026-10-20に対応します。</p>
+      </section>
+      <section>
+        <h2><span class="step">2</span>提出されたシフトを読み込む</h2>
+        <button type="button" id="load-submissions" class="secondary">対象月の提出を読み込む</button>
+        <p id="submission-summary" class="small"></p>
+        <p>同じ人・同じ月の再提出は、最新の提出全体を採用します。読み込み後に下の欄で修正したり、LINEの文章を直接貼り付けたりできます。</p>
+        <p class="small">Excelと同じ氏名を使ってください（氏名の空白は無視されます）。シフト希望の内容は反映前に責任者が確認してください。</p>
+        <label for="text">シフト希望</label>
+        <textarea id="text" rows="7" required placeholder="山田 太郎 10/20 17:00-22:00&#10;佐藤 花子 10/21 休み"></textarea>
+        <p class="small">形式：氏名 日付 開始時刻-終了時刻（または「休み」）。あいさつやLINEの送信時刻は取り除いてください。日をまたぐシフトは未対応です。</p>
+        <button type="button" id="example" class="secondary">対象月の入力例を入れる</button>
+        <button type="submit" id="preview">反映内容を確認する →</button>
+      </section>
+      <div id="status" role="status" aria-live="polite" hidden></div>
+      <section id="result" hidden>
+        <h2><span class="step">3</span>内容を確認して保存</h2>
+        <p id="count"></p>
+        <div class="table-wrap"><table><thead><tr><th>氏名</th><th>日付</th><th>セル</th><th>現在の値</th><th>反映する値</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <label class="check"><input type="checkbox" id="overwrite">色付きのセルに既にある値を上書きすることを確認しました</label>
+        <p class="small">元ファイルには直接書き込みません。ダウンロードしたコピーをExcelで確認してから、必要に応じて元のシフト表と差し替えてください。図形など一部の高度なExcel機能は保持できない場合があります。</p>
+        <button type="button" id="download">反映済みExcelをダウンロード</button>
+      </section>
+    </form>
+    <footer>提出データはサーバーに保存します。Excel本体は反映処理中だけ読み込み、サーバーのファイルには保存しません。元のExcelへの直接書き込みは行いません。</footer>
+  </main>
+</body>
+</html>

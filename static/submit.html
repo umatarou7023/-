@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>シフト希望を提出｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/submit.js" defer></script></head>
+<body><main>
+  <header><span class="badge">スタッフ用 · シフト提出</span><h1>来月の予定を、<br>ここから。</h1><p>希望する日と時間を選んで、まとめて提出。<br>LINEでのログインやアプリのインストールは不要です。</p></header>
+  <aside>こちらはシフトの「希望」を提出する画面です。勤務の確定は責任者からの連絡を確認してください。</aside>
+  <form id="submit-form">
+    <section><h2><span class="step">1</span>名前と対象月</h2><div class="grid">
+      <label>氏名（シフト表と同じ名前）<input id="name" autocomplete="name" maxlength="60" required placeholder="山田 太郎"></label>
+      <label>対象月<input id="month" type="month" required></label>
+    </div></section>
+    <section><h2><span class="step">2</span>希望を選ぶ</h2>
+      <p>各日を「出勤可」「休み」から選んでください。「未入力」は提出に含みません。時間は24時間表記です。</p>
+      <div id="days"></div>
+      <p class="small">再提出すると、同じ氏名・同じ月の前回の提出全体が、新しい内容に置き換わります。変更する日だけでなく、その月の希望全体を入力してください。日をまたぐ勤務は未対応です。</p>
+      <label class="check"><input type="checkbox" id="confirm" required>氏名・対象月・希望日時を確認しました</label>
+      <button id="send" type="submit">シフト希望を提出する</button>
+    </section>
+  </form>
+  <div id="status" role="status" aria-live="polite" hidden></div>
+  <footer>提出した氏名と希望日時は、シフト作成のためサーバーに保存され、管理者が確認します。他の人の提出内容はこの画面には表示されません。リンクをグループ外に転送しないでください。</footer>
+</main></body></html>

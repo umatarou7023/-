@@ -1,0 +1,19 @@
+# Render Blueprintで使う場合はファイル名にrender.beta.yamlを指定。
+# ダミーデータ限定。無料インスタンスの再起動等で提出データは失われます。
+services:
+  - type: web
+    name: shift-beta
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SHIFT_HOST
+        value: 0.0.0.0
+      - key: SHIFT_DATA_DIR
+        value: /tmp/shift-beta-data
+      - key: SHIFT_ADMIN_PASSWORD
+        generateValue: true
+      - key: SHIFT_INVITE_CODE
+        generateValue: true
+      - key: SHIFT_SESSION_SECRET
+        generateValue: true
