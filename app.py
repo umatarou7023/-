@@ -18,6 +18,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from shifts import InputError, read_book, make_plan, export_book, sample_book, parse_lines, normalize_name, month_parts
 from daily_shifts import (parse_roster, target_day, daily_candidates, make_daily_plan,
                           patch_daily_excel, fingerprint, sample_daily_book)
+from break_rules import parse_break_settings, default_break_settings, apply_break_rules
 
 ROOT = Path(__file__).parent
 
@@ -186,6 +187,20 @@ def create_app(config=None):
             row = db.execute("SELECT value FROM settings WHERE name='roster'").fetchone()
         return parse_roster(json.loads(row[0]) if row else {"kitchen": [], "hall": []})
 
+    def get_break_settings():
+        with sqlite3.connect(db_file) as db:
+            row = db.execute("SELECT value FROM settings WHERE name='break_settings'").fetchone()
+        return parse_break_settings(json.loads(row[0])) if row else default_break_settings()
+
+    @app.route("/api/break-settings", methods=["GET", "POST"])
+    @admin_required
+    def break_settings():
+        if request.method == "POST":
+            value = parse_break_settings(json_data())
+            with sqlite3.connect(db_file) as db:
+                db.execute("INSERT INTO settings(name,value) VALUES('break_settings',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", (json.dumps(value, ensure_ascii=False),))
+        return jsonify(settings=get_break_settings())
+
     @app.route("/api/roster", methods=["GET", "POST"])
     @admin_required
     def roster():
@@ -197,14 +212,17 @@ def create_app(config=None):
 
     def daily_context(day):
         target_day(day)
-        return daily_candidates(latest_records(day[:7]), get_roster(), day)
+        rows, version = daily_candidates(latest_records(day[:7]), get_roster(), day)
+        settings = get_break_settings()
+        rows, info = apply_break_rules(rows, settings, day)
+        return rows, fingerprint({"submissions": version, "settings": settings}), settings, info
 
     @app.get("/api/daily-candidates")
     @admin_required
     def candidates():
         day = request.args.get("day", "")
-        rows, version = daily_context(day)
-        return jsonify(rows=rows, version=version)
+        rows, version, settings, info = daily_context(day)
+        return jsonify(rows=rows, version=version, settings=settings, day_type=info)
 
     def excel_response(content):
         return send_file(BytesIO(content), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name="shift-result.xlsx")
@@ -230,10 +248,26 @@ def create_app(config=None):
             if action == "inspect":
                 return jsonify(sheets=book.sheetnames)
             if action.startswith("daily-"):
-                people, version = daily_context(data.get("day"))
+                people, version, settings, info = daily_context(data.get("day"))
                 if data.get("version") != version:
-                    raise InputError("提出内容またはスタッフ一覧が変わりました。候補を読み込み直して、もう一度確認してください。")
+                    raise InputError("提出内容・スタッフ一覧・休憩設定が変わりました。候補を読み込み直して、もう一度確認してください。")
+                if settings["mode"] == "auto":
+                    ids = data.get("selected_ids", [])
+                    if not isinstance(ids, list):
+                        raise InputError("反映する人を選んでください。")
+                    for person in people:
+                        if person["id"] in ids and person["break_issue"]:
+                            raise InputError(f"{person['name']}：{person['break_issue']}")
+                    # 自動モードの休憩は保存済みルールから計算し直す。画面側の時刻は信用しない。
+                    data = {**data, "breaks": {str(p["id"]): p["automatic_break"] for p in people}}
                 plan = make_daily_plan(book, data, people)
+                plan["mode"] = settings["mode"]
+                plan["day_type"] = info
+                if settings["mode"] == "auto":
+                    plan["warnings"][1] = f"{info['label']}の固定休憩を適用しました。勤務と重ならない場合は休憩なしです。職場のルールへの適合は管理者が確認してください。"
+                    for placement in plan["placements"]:
+                        if placement["break"] == "なし（管理者確認）":
+                            placement["break"] = "なし（固定ルールによる）"
                 token = fingerprint({"version": version, "plan": plan, "sheet": data.get("sheet"), "day": data.get("day"), "file": data.get("file")})
                 if action == "daily-preview":
                     return jsonify(**plan, plan_token=token)

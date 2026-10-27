@@ -79,10 +79,10 @@ class WebTests(unittest.TestCase):
 
     def test_admin_password_origin_logout_and_settings_protection(self):
         self.assertEqual(self.get("/api/settings").status_code, 401)
-        for path in ["/api/roster", "/api/daily-candidates?day=2026-11-20", "/api/daily-sample?day=2026-11-20"]:
+        for path in ["/api/roster", "/api/break-settings", "/api/daily-candidates?day=2026-11-20", "/api/daily-sample?day=2026-11-20"]:
             self.assertEqual(self.get(path).status_code, 401)
         self.assertEqual(self.get("/daily").status_code, 302)
-        for path in ["/api/daily-preview", "/api/daily-export", "/api/roster"]:
+        for path in ["/api/daily-preview", "/api/daily-export", "/api/roster", "/api/break-settings"]:
             self.assertEqual(self.post(path, {}).status_code, 401)
         self.assertEqual(self.post("/api/login", {"password": "wrong"}).status_code, 401)
         self.assertEqual(self.client.post("/api/submit", json=self.submission(), base_url=self.base, headers={"Origin": "https://other.test"}).status_code, 403)

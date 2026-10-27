@@ -4,7 +4,7 @@ py -3 -m venv .venv
 if errorlevel 1 goto fail
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 if errorlevel 1 goto fail
-echo Setup complete. Double-click start.bat next.
+echo Setup complete. For beta tests, double-click start-beta.bat next.
 pause
 exit /b 0
 :fail

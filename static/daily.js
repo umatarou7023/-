@@ -4,6 +4,7 @@ const now = new Date();
 $("day").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 let version = "", loadedDay = "", fileData = "", reviewed = null;
 let loadedRoster = "";
+let loadedBreakSettings = "";
 
 function message(text) { $("status").textContent = text; $("status").hidden = !text; }
 function invalidate() { reviewed = null; $("result").hidden = true; $("overwrite").checked = false; }
@@ -25,7 +26,53 @@ async function loadRoster() {
     loadedRoster = JSON.stringify(rosterPayload());
   } catch (e) { message(e.message); }
 }
-loadRoster();
+function breakSettingsPayload() {
+  const result = {mode: document.querySelector('input[name="workflow-mode"]:checked').value};
+  for (const key of ["weekday", "weekend"]) {
+    const mode = $(`${key}-rule`).value;
+    result[key] = mode === "time" ? {mode, start: $(`${key}-start`).value, end: $(`${key}-end`).value} : {mode};
+  }
+  return result;
+}
+function syncRuleInputs() {
+  for (const key of ["weekday", "weekend"]) for (const edge of ["start", "end"]) $(`${key}-${edge}`).disabled = $(`${key}-rule`).value !== "time";
+}
+function displayBreakSettings(settings) {
+  document.querySelector(`input[name="workflow-mode"][value="${settings.mode}"]`).checked = true;
+  for (const key of ["weekday", "weekend"]) {
+    $(`${key}-rule`).value = settings[key].mode;
+    $(`${key}-start`).value = settings[key].start || "";
+    $(`${key}-end`).value = settings[key].end || "";
+  }
+  syncRuleInputs(); loadedBreakSettings = JSON.stringify(breakSettingsPayload());
+  $("break-settings-note").textContent = `保存済み：${settings.mode === "auto" ? "固定休憩を自動入力" : "管理者が確認して指定"}。次回もこの設定を使います。`;
+}
+async function loadBreakSettings() {
+  try { displayBreakSettings((await (await api("/api/break-settings")).json()).settings); }
+  catch (e) { message(e.message); $("break-settings-note").textContent = "設定を読み込めませんでした。画面を更新してください。"; }
+}
+Promise.all([loadRoster(), loadBreakSettings()]).then(() => {
+  if (loadedBreakSettings && breakSettingsPayload().mode === "auto") loadCandidates(false);
+});
+for (const node of document.querySelectorAll('input[name="workflow-mode"], #weekday-rule, #weekday-start, #weekday-end, #weekend-rule, #weekend-start, #weekend-end')) node.addEventListener("input", () => {
+  syncRuleInputs(); resetCandidates();
+  $("break-settings-note").textContent = "変更は未保存です。「モード・休憩設定を保存」を押してください。";
+});
+$("save-break-settings").addEventListener("click", async () => {
+  $("save-break-settings").disabled = true;
+  try {
+    const data = breakSettingsPayload();
+    const result = await (await api("/api/break-settings", data)).json();
+    resetCandidates();
+    if (JSON.stringify(data) !== JSON.stringify(breakSettingsPayload())) {
+      loadedBreakSettings = JSON.stringify(result.settings); message("保存後に設定が変わりました。変更分も保存してください。"); return;
+    }
+    displayBreakSettings(result.settings);
+    if (result.settings.mode === "auto") await loadCandidates(false);
+    else message("手動モードを保存しました。候補を読み込んで、休憩を指定してください。");
+  } catch (e) { message(e.message); }
+  finally { $("save-break-settings").disabled = false; }
+});
 for (const id of ["kitchen", "hall"]) $(id).addEventListener("input", () => {
   resetCandidates(); $("roster-note").textContent = "一覧が未保存です。保存してから候補を読み込んでください。";
 });
@@ -40,7 +87,10 @@ $("save-roster").addEventListener("click", async () => {
   } catch (e) { message(e.message); }
   finally { $("save-roster").disabled = false; }
 });
-$("day").addEventListener("change", () => { resetCandidates(); $("date-confirmed").checked = false; });
+$("day").addEventListener("change", () => {
+  resetCandidates(); $("date-confirmed").checked = false;
+  if (JSON.stringify(breakSettingsPayload()) === loadedBreakSettings && breakSettingsPayload().mode === "auto") loadCandidates(false);
+});
 function selectedRows() { return [...$("candidates").children].filter((row) => row.querySelector(".pick").checked); }
 function updateCapacity() {
   const selected = selectedRows();
@@ -51,15 +101,19 @@ function updateCapacity() {
   const unknown = [...$("candidates").children].filter((r) => !r.dataset.role).length;
   $("capacity").textContent = counts.join(" ／ ") + (unknown ? ` ／ 未登録 ${unknown}人：一覧に登録してから読み込み直してください` : "");
 }
-$("load").addEventListener("click", async () => {
+async function loadCandidates(confirmReset=true) {
   if (JSON.stringify(rosterPayload()) !== loadedRoster) { message("スタッフ一覧の変更を保存してください。"); return; }
-  if (version && !window.confirm("候補を読み込み直すと、選択と休憩の指定がリセットされます。続けますか？")) return;
+  if (JSON.stringify(breakSettingsPayload()) !== loadedBreakSettings) { message("モード・休憩設定を保存してから候補を読み込んでください。"); return; }
+  if (confirmReset && version && !window.confirm("候補を読み込み直すと、選択と休憩の指定がリセットされます。続けますか？")) return;
   const day = $("day").value;
   $("load").disabled = true;
   try {
     const result = await (await api(`/api/daily-candidates?day=${encodeURIComponent(day)}`)).json();
-    if (day !== $("day").value || JSON.stringify(rosterPayload()) !== loadedRoster) return;
+    if (day !== $("day").value || JSON.stringify(rosterPayload()) !== loadedRoster || JSON.stringify(breakSettingsPayload()) !== loadedBreakSettings) return;
+    displayBreakSettings(result.settings);
     resetCandidates(); version = result.version; loadedDay = day;
+    const auto = result.settings.mode === "auto";
+    $("day-type").textContent = `${day}：${result.day_type.label}${result.day_type.holiday ? `（${result.day_type.holiday}）` : ""} ／ ${auto ? "保存した固定休憩を自動入力" : "休憩は管理者が指定"}`;
     for (const person of result.rows) {
       const row = document.createElement("tr"); row.dataset.id = person.id; row.dataset.role = person.role;
       const pick = document.createElement("input"); pick.type = "checkbox"; pick.className = "pick";
@@ -68,10 +122,16 @@ $("load").addEventListener("click", async () => {
       for (const text of [roles[person.role]?.label || "未登録", person.name, person.shift]) { const cell = document.createElement("td"); cell.textContent = text; row.append(cell); }
       const mode = document.createElement("select"); mode.className = "rest-mode";
       mode.setAttribute("aria-label", `${person.name}の休憩`);
-      mode.append(new Option("未確認", ""), new Option("休憩なし（確認済み）", "none"), new Option("時刻を指定", "time"));
+      mode.append(new Option(person.break_issue ? "要確認" : "未確認", ""), new Option(auto ? "休憩なし（自動）" : "休憩なし（確認済み）", "none"), new Option("時刻を指定", "time"));
+      if (auto) { mode.value = person.automatic_break.mode || ""; mode.disabled = true; }
       const modeCell = document.createElement("td"); modeCell.append(mode); row.append(modeCell);
+      if (auto && (person.break_issue || person.break_note)) {
+        const note = document.createElement("p"); note.className = "small";
+        note.textContent = person.break_issue || person.break_note; modeCell.append(note);
+      }
       for (const [kind, label] of [["rest-start", "休憩開始"], ["rest-end", "休憩終了"]]) {
         const input = document.createElement("input"); input.type = "time"; input.step = "900"; input.className = kind; input.disabled = true;
+        if (auto) input.value = person.automatic_break[kind === "rest-start" ? "start" : "end"] || "";
         input.setAttribute("aria-label", `${person.name}の${label}`);
         const cell = document.createElement("td"); cell.append(input); row.append(cell);
       }
@@ -79,10 +139,11 @@ $("load").addEventListener("click", async () => {
       $("candidates").append(row);
     }
     $("candidate-area").hidden = false; updateCapacity();
-    message(result.rows.length ? `${result.rows.length}人の出勤希望を読み込みました。対象者と休憩を確認してください。` : "対象日の出勤希望はありません。");
+    message(result.rows.length ? `${result.rows.length}人の出勤希望を読み込みました。${auto ? "固定休憩を適用しました。人数と内容を確認してください。" : "対象者と休憩を確認してください。"}` : "対象日の出勤希望はありません。");
   } catch (e) { resetCandidates(); message(e.message); }
   finally { $("load").disabled = false; }
-});
+}
+$("load").addEventListener("click", () => loadCandidates());
 $("candidates").addEventListener("input", () => { invalidate(); updateCapacity(); });
 $("file").addEventListener("change", async () => {
   fileData = ""; invalidate(); $("date-confirmed").checked = false;

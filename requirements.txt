@@ -1,3 +1,4 @@
 openpyxl==3.1.5
 Flask==3.1.2
 waitress==3.0.2
+jpholiday==1.0.3
