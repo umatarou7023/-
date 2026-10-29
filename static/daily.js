@@ -27,6 +27,7 @@ async function loadRoster() {
   } catch (e) { message(e.message); }
 }
 function breakSettingsPayload() {
+  ShiftInput.normalizeTimeFields();
   const result = {mode: document.querySelector('input[name="workflow-mode"]:checked').value};
   for (const key of ["weekday", "weekend"]) {
     const mode = $(`${key}-rule`).value;
@@ -130,12 +131,12 @@ async function loadCandidates(confirmReset=true) {
         note.textContent = person.break_issue || person.break_note; modeCell.append(note);
       }
       for (const [kind, label] of [["rest-start", "休憩開始"], ["rest-end", "休憩終了"]]) {
-        const input = document.createElement("input"); input.type = "time"; input.step = "900"; input.className = kind; input.disabled = true;
+        const input = document.createElement("input"); ShiftInput.configureTimeInput(input); input.className = kind; input.disabled = true;
         if (auto) input.value = person.automatic_break[kind === "rest-start" ? "start" : "end"] || "";
         input.setAttribute("aria-label", `${person.name}の${label}`);
         const cell = document.createElement("td"); cell.append(input); row.append(cell);
       }
-      mode.addEventListener("change", () => { for (const input of row.querySelectorAll("input[type=time]")) input.disabled = mode.value !== "time"; });
+      mode.addEventListener("change", () => { for (const input of row.querySelectorAll("input[data-clock]")) input.disabled = mode.value !== "time"; });
       $("candidates").append(row);
     }
     $("candidate-area").hidden = false; updateCapacity();
@@ -167,6 +168,7 @@ $("sample").addEventListener("click", async () => {
   } catch (e) { message(e.message); }
 });
 function payload() {
+  ShiftInput.normalizeTimeFields();
   const selected = selectedRows(), breaks = {};
   for (const row of selected) breaks[row.dataset.id] = {mode: row.querySelector(".rest-mode").value, start: row.querySelector(".rest-start").value, end: row.querySelector(".rest-end").value};
   return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};

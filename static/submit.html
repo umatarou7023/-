@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>シフト希望を提出｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/submit.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>シフト希望を提出｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/input-normalize.js" defer></script><script src="/submit.js" defer></script></head>
 <body><main>
   <header><span class="badge">スタッフ用 · シフト提出</span><h1>来月の予定を、<br>ここから。</h1><p>希望する日と時間を選んで、まとめて提出。<br>LINEでのログインやアプリのインストールは不要です。</p></header>
   <aside>こちらはシフトの「希望」を提出する画面です。勤務の確定は責任者からの連絡を確認してください。</aside>
@@ -10,7 +10,7 @@
       <label>対象月<input id="month" type="month" required></label>
     </div></section>
     <section><h2><span class="step">2</span>希望を選ぶ</h2>
-      <p>各日を「出勤可」「休み」から選んでください。「未入力」は提出に含みません。時間は24時間表記です。</p>
+      <p>各日を「出勤可」「休み」から選んでください。「未入力」は提出に含みません。時間は24時間表記です。全角の「１７：００」も入力できます。</p>
       <div id="days"></div>
       <p class="small">再提出すると、同じ氏名・同じ月の前回の提出全体が、新しい内容に置き換わります。変更する日だけでなく、その月の希望全体を入力してください。日をまたぐ勤務は未対応です。</p>
       <label class="check"><input type="checkbox" id="confirm" required>氏名・対象月・希望日時を確認しました</label>

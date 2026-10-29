@@ -2,7 +2,7 @@
 import jpholiday
 
 from daily_shifts import minutes, target_day
-from shifts import InputError
+from shifts import InputError, normalize_clock
 
 
 def parse_break_settings(value):
@@ -15,7 +15,7 @@ def parse_break_settings(value):
             raise InputError(f"{label}の休憩設定を確認してください。")
         mode = rule["mode"]
         if mode == "time":
-            start, end = rule.get("start"), rule.get("end")
+            start, end = normalize_clock(rule.get("start")), normalize_clock(rule.get("end"))
             if minutes(start) >= minutes(end):
                 raise InputError(f"{label}の休憩終了は開始より後にしてください。")
             result[key] = {"mode": "time", "start": start, "end": end}

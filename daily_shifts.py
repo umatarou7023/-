@@ -9,7 +9,7 @@ from xml.dom import minidom
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
-from shifts import InputError, normalize_name
+from shifts import InputError, normalize_name, normalize_numeric, normalize_clock
 
 GROUPS = {"kitchen": ("キッチン", list(range(15, 31, 2))),
           "hall": ("ホール", list(range(34, 54, 2)))}
@@ -42,6 +42,7 @@ def parse_roster(value):
 
 def target_day(value):
     try:
+        value = normalize_numeric(value)
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
             raise ValueError()
         return date.fromisoformat(value)
@@ -95,6 +96,7 @@ def validate_template(book, sheet_name):
 
 
 def minutes(value):
+    value = normalize_clock(value)
     if not isinstance(value, str) or not re.fullmatch(r"\d{2}:\d{2}", value):
         raise InputError("時刻はHH:MM形式で指定してください。")
     hour, minute = map(int, value.split(":"))
@@ -170,11 +172,12 @@ def make_daily_plan(book, data, candidates):
                     raise InputError(f"{person['name']}の休憩を確認してください（休憩なし／時刻指定）。")
                 rest_text = "なし（管理者確認）"
                 if rest["mode"] == "time":
-                    rs, re_ = minutes(rest.get("start")), minutes(rest.get("end"))
+                    rest_start, rest_end = normalize_clock(rest.get("start")), normalize_clock(rest.get("end"))
+                    rs, re_ = minutes(rest_start), minutes(rest_end)
                     if not (start <= rs < re_ <= end):
                         raise InputError(f"{person['name']}の休憩は勤務時間内で、開始より終了を後にしてください。")
                     values["H"], values["I"] = rs / 1440, re_ / 1440
-                    rest_text = f"{rest['start']}-{rest['end']}"
+                    rest_text = f"{rest_start}-{rest_end}"
                 values.update(C=person["name"], D=start/1440, E=end/1440)
                 placements.append({"id": person["id"], "role": label, "name": person["name"], "shift": person["shift"], "break": rest_text, "cell": f"C{row}", "date": day.isoformat()})
             for col, value in values.items():

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>日別シフト・ベータ｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/daily.js" defer></script></head>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>日別シフト・ベータ｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/input-normalize.js" defer></script><script src="/daily.js" defer></script></head>
 <body><main>
   <header><span class="badge">管理者用 · 日別表のベータ版</span><h1>希望を確認して、<br>日別シフトへ。</h1><p>キッチン8人・ホール10人。全員の希望を残したまま、<br>反映する人と休憩を確認してからExcelのコピーに出力します。</p><a href="/">提出リンク・月別表の管理画面へ</a></header>
   <aside>Book3型の表向けです。別の形式には推測で書き込みません。実際の勤務表は使わず、コピーで試してください。Excelでの黒い勤務帯・合計の再計算は、出力後に確認が必要です。</aside>
@@ -11,10 +11,10 @@
     </div>
     <p>勤務開始・終了は提出内容を使います。自動でも人数超過時は止め、管理者が人を選び直します。Excelへの出力前の確認は両方のモードにあります。</p>
     <div class="grid equal">
-      <fieldset><legend>平日の固定休憩</legend><label>休憩の設定<select id="weekday-rule"><option value="unset">未設定</option><option value="time">時間帯を指定</option><option value="none">休憩なし</option></select></label><div class="grid equal"><label>開始<input id="weekday-start" type="time" step="900" disabled></label><label>終了<input id="weekday-end" type="time" step="900" disabled></label></div></fieldset>
-      <fieldset><legend>土日祝の固定休憩</legend><label>休憩の設定<select id="weekend-rule"><option value="unset">未設定</option><option value="time">時間帯を指定</option><option value="none">休憩なし</option></select></label><div class="grid equal"><label>開始<input id="weekend-start" type="time" step="900" disabled></label><label>終了<input id="weekend-end" type="time" step="900" disabled></label></div></fieldset>
+      <fieldset><legend>平日の固定休憩</legend><label>休憩の設定<select id="weekday-rule"><option value="unset">未設定</option><option value="time">時間帯を指定</option><option value="none">休憩なし</option></select></label><div class="grid equal"><label>開始<input id="weekday-start" type="text" data-clock disabled></label><label>終了<input id="weekday-end" type="text" data-clock disabled></label></div></fieldset>
+      <fieldset><legend>土日祝の固定休憩</legend><label>休憩の設定<select id="weekend-rule"><option value="unset">未設定</option><option value="time">時間帯を指定</option><option value="none">休憩なし</option></select></label><div class="grid equal"><label>開始<input id="weekend-start" type="text" data-clock disabled></label><label>終了<input id="weekend-end" type="text" data-clock disabled></label></div></fieldset>
     </div>
-    <p class="small">祝日は日本の祝日・振替休日・国民の休日を日付から判定します。固定休憩と勤務が重ならない場合は休憩なし、一部だけ重なる場合は止めて手動確認を求めます。時刻は15分単位です。</p>
+    <p class="small">祝日は日本の祝日・振替休日・国民の休日を日付から判定します。固定休憩と勤務が重ならない場合は休憩なし、一部だけ重なる場合は止めて手動確認を求めます。時刻は15分単位です。全角の「１５：００」も入力できます。</p>
     <button id="save-break-settings" type="button">モード・休憩設定を保存</button>
     <p id="break-settings-note" role="status" class="small">設定を読み込んでいます…</p>
     <p class="small">保存すると次に開いたときも同じモードと時間を使います。設定変更・候補の再読込で、対象者の選択と休憩指定はリセットされます。</p>

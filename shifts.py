@@ -35,8 +35,28 @@ def normalize_name(value):
     return re.sub(r"\s+", "", str(value or ""))
 
 
+def normalize_numeric(value):
+    """日付・時刻の数字と記号だけを変換する。氏名には適用しない。"""
+    if not isinstance(value, str):
+        return value
+    return value.translate(str.maketrans("０１２３４５６７８９：／－", "0123456789:/-"))
+
+
+def normalize_clock(value):
+    value = normalize_numeric(value)
+    if not isinstance(value, str):
+        return value
+    value = value.strip()
+    if re.fullmatch(r"[0-9]{1,2}:[0-9]{2}", value):
+        hour, minute = map(int, value.split(":"))
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return f"{hour:02}:{minute:02}"
+    return value
+
+
 def month_parts(value):
     try:
+        value = normalize_numeric(value)
         if not re.fullmatch(r"\d{4}-\d{2}", value):
             raise ValueError()
         year, month = map(int, value.split("-"))
@@ -49,7 +69,7 @@ def month_parts(value):
 def header_date(value, year, month):
     if isinstance(value, (datetime, date)):
         return value.date() if isinstance(value, datetime) else value
-    text = str(value or "").strip()
+    text = normalize_numeric(str(value or "")).strip()
     try:
         if re.fullmatch(r"\d{1,2}(?:日)?", text):
             return date(year, month, int(text.rstrip("日")))
@@ -68,7 +88,7 @@ def parse_lines(text, month_value):
     if not text.strip():
         raise InputError("LINEからコピーしたシフトを入力してください。")
     rows, errors, seen = [], [], set()
-    pattern = r"^(.+?)\s+(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}/\d{1,2})\s+(休み|\d{1,2}:\d{2}\s*[-〜～]\s*\d{1,2}:\d{2})$"
+    pattern = r"^(.+?)\s+(\d{4}[-/－／]\d{1,2}[-/－／]\d{1,2}|\d{1,2}[/／]\d{1,2})\s+(休み|\d{1,2}[:：]\d{2}\s*[-－〜～]\s*\d{1,2}[:：]\d{2})$"
     for number, line in enumerate(text.splitlines(), 1):
         if not line.strip():
             continue
@@ -77,6 +97,7 @@ def parse_lines(text, month_value):
             errors.append(f"{number}行目：『山田 太郎 10/20 17:00-22:00』または『山田 太郎 10/20 休み』の形式で入力してください。")
             continue
         name, day_text, shift = match.groups()
+        shift = normalize_numeric(shift)
         day = header_date(day_text, year, month)
         if not day or (day.year, day.month) != (year, month):
             errors.append(f"{number}行目：日付が存在しないか、対象月と一致しません。")

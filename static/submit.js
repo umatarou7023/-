@@ -16,9 +16,9 @@ function renderDays() {
     const mode = document.createElement("select");
     mode.setAttribute("aria-label", `${month}月${day}日の希望`);
     mode.append(new Option("未入力", ""), new Option("出勤可", "work"), new Option("休み", "off"));
-    const start = document.createElement("input"); start.type = "time"; start.value = "17:00"; start.disabled = true;
+    const start = document.createElement("input"); ShiftInput.configureTimeInput(start); start.value = "17:00"; start.disabled = true;
     start.setAttribute("aria-label", `${month}月${day}日の開始時刻`);
-    const end = document.createElement("input"); end.type = "time"; end.value = "22:00"; end.disabled = true;
+    const end = document.createElement("input"); ShiftInput.configureTimeInput(end); end.value = "22:00"; end.disabled = true;
     end.setAttribute("aria-label", `${month}月${day}日の終了時刻`);
     mode.addEventListener("change", () => { start.disabled = end.disabled = mode.value !== "work"; start.required = end.required = mode.value === "work"; $("confirm").checked = false; });
     row.append(title, mode, start, end); $("days").append(row);
@@ -35,6 +35,7 @@ renderDays();
 if (!key) { message("グループLINEで案内された提出リンクから開いてください。"); $("send").disabled = true; }
 $("submit-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  ShiftInput.normalizeTimeFields();
   const days = [...$("days").children].flatMap((row) => {
     const mode = row.querySelector("select").value;
     if (!mode) return [];

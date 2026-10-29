@@ -106,7 +106,7 @@ def create_app(config=None):
 
     @app.get("/<name>")
     def asset(name):
-        if name not in {"app.js", "style.css", "submit.js", "login.js", "daily.js"}:
+        if name not in {"app.js", "style.css", "submit.js", "login.js", "daily.js", "input-normalize.js"}:
             return jsonify(error="ページがありません。"), 404
         return static(name)
 
@@ -145,8 +145,8 @@ def create_app(config=None):
         name = data.get("name", "")
         if not isinstance(name, str) or not name.strip() or len(name) > 60 or any(c in name for c in "\n\r\t"):
             raise InputError("氏名を60文字以内で入力してください。")
-        month = data.get("month", "")
-        month_parts(month)
+        year, month_number = month_parts(data.get("month", ""))
+        month = f"{year:04}-{month_number:02}"
         days = data.get("days")
         if not isinstance(days, list) or not 1 <= len(days) <= 31:
             raise InputError("1日以上のシフトを選んでください。")
@@ -167,8 +167,8 @@ def create_app(config=None):
     @app.get("/api/submissions")
     @admin_required
     def submissions():
-        month = request.args.get("month", "")
-        month_parts(month)
+        year, month_number = month_parts(request.args.get("month", ""))
+        month = f"{year:04}-{month_number:02}"
         people, lines = [], []
         for record in latest_records(month):
             rows = record["rows"]
@@ -211,7 +211,7 @@ def create_app(config=None):
         return jsonify(roster=get_roster())
 
     def daily_context(day):
-        target_day(day)
+        day = target_day(day).isoformat()
         rows, version = daily_candidates(latest_records(day[:7]), get_roster(), day)
         settings = get_break_settings()
         rows, info = apply_break_rules(rows, settings, day)
