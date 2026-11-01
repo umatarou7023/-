@@ -178,9 +178,17 @@ def create_app(config=None):
 
     def latest_records(month):
         with sqlite3.connect(db_file) as db:
-            records = db.execute("SELECT s.id,s.name,s.rows_json,s.submitted_at FROM submissions s JOIN (SELECT name_key,MAX(id) AS latest FROM submissions WHERE month=? GROUP BY name_key) x ON s.id=x.latest ORDER BY s.id", (month,)).fetchall()
-        return [{"id": number, "name": name, "rows": json.loads(content), "submitted_at": stamp}
-                for number, name, content, stamp in records]
+            records = db.execute("""
+                SELECT s.id,s.name,s.rows_json,s.submitted_at,x.first_id,f.submitted_at
+                FROM submissions s
+                JOIN (SELECT name_key,MAX(id) AS latest,MIN(id) AS first_id
+                      FROM submissions WHERE month=? GROUP BY name_key) x ON s.id=x.latest
+                JOIN submissions f ON f.id=x.first_id
+                ORDER BY x.first_id
+            """, (month,)).fetchall()
+        return [{"id": number, "name": name, "rows": json.loads(content), "submitted_at": stamp,
+                 "first_id": first_id, "first_submitted_at": first_stamp}
+                for number, name, content, stamp, first_id, first_stamp in records]
 
     def get_roster():
         with sqlite3.connect(db_file) as db:

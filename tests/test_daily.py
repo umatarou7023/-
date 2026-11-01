@@ -63,13 +63,37 @@ class DailyTests(unittest.TestCase):
         with sqlite3.connect(Path(self.temp.name)/"shifts.sqlite3") as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM submissions").fetchone()[0], 20)
 
-    def test_start_time_then_roster_order_not_submission_order(self):
-        self.submit("厨房03", "10:00-18:00")
+    def test_submission_order_even_if_dinner_is_earlier_than_lunch(self):
+        self.submit("厨房03", "17:00-21:00")
         self.submit("厨房02", "09:00-18:00")
         self.submit("厨房01", "09:00-18:00")
         people = self.preview(self.data())["placements"]
-        self.assertEqual([p["name"] for p in people], ["厨房01", "厨房02", "厨房03"])
+        self.assertEqual([p["name"] for p in people], ["厨房03", "厨房02", "厨房01"])
         self.assertEqual([p["cell"] for p in people], ["C15", "C17", "C19"])
+
+    def test_resubmission_preserves_initial_priority_but_uses_latest_times(self):
+        first = self.submit("厨房03", "17:00-21:00")
+        self.submit("厨房01", "09:00-18:00")
+        latest = self.submit("厨房03", "18:00-22:00")
+        rows = self.client.get("/api/daily-candidates?day=2026-11-20").json["rows"]
+        self.assertEqual(rows[0]["submission_order"], first)
+        self.assertEqual(rows[0]["id"], latest)
+        plan = self.preview(self.data())
+        self.assertEqual([p["name"] for p in plan["placements"]], ["厨房03", "厨房01"])
+        self.assertEqual(plan["placements"][0]["shift"], "18:00-22:00")
+
+    def test_submission_priority_is_separate_for_each_month_and_role(self):
+        self.submit("接客02", "17:00-21:00")
+        self.submit("厨房02", "17:00-21:00")
+        self.submit("接客01", "09:00-15:00")
+        self.submit("厨房01", "09:00-15:00")
+        plan = self.preview(self.data())["placements"]
+        self.assertEqual([(p["name"], p["cell"]) for p in plan], [("厨房02", "C15"), ("厨房01", "C17"), ("接客02", "C34"), ("接客01", "C36")])
+        for name in ["厨房01", "厨房02"]:
+            result = self.post("/api/submit", {"key": self.app.config["INVITE_CODE"], "name": name, "month": "2026-12", "days": [{"date": "2026-12-20", "shift": "09:00-15:00"}]})
+            self.assertEqual(result.status_code, 200)
+        rows = self.client.get("/api/daily-candidates?day=2026-12-20").json["rows"]
+        self.assertEqual([p["name"] for p in rows], ["厨房01", "厨房02"])
 
     def test_break_confirmed_and_written_as_excel_time(self):
         number = self.submit("厨房01")

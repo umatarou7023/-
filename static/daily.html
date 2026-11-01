@@ -21,9 +21,9 @@
   </section>
   <section>
     <h2><span class="step">1</span>スタッフ一覧を登録する</h2>
-    <p>1行に1人、普段のスタッフ一覧と同じ順に入力します。同じ開始時刻ならこの順に並びます。提出時刻で優先順位は決めません。</p>
+    <p>1行に1人の氏名を登録します。Excelでは所属ごとに、同じ月の初回提出が早い人から並びます。勤務開始が遅い人でも、先に提出していれば上に表示します。</p>
     <p class="small">スタッフ一覧タブをまだ受け取っていないため、ベータではここで登録します。キッチン・ホールの所属もこの一覧で判断します。</p>
-    <div class="grid equal"><label>キッチン（一覧の順）<textarea id="kitchen" rows="6" placeholder="山田 太郎&#10;鈴木 一郎"></textarea></label><label>ホール（一覧の順）<textarea id="hall" rows="6" placeholder="佐藤 花子"></textarea></label></div>
+    <div class="grid equal"><label>キッチン（1行に1人）<textarea id="kitchen" rows="6" placeholder="山田 太郎&#10;鈴木 一郎"></textarea></label><label>ホール（1行に1人）<textarea id="hall" rows="6" placeholder="佐藤 花子"></textarea></label></div>
     <button id="save-roster" type="button">スタッフ一覧を保存</button>
     <p class="small" id="roster-note"></p>
   </section>
@@ -31,13 +31,13 @@
     <h2><span class="step">2</span>対象日の提出を読み込む</h2>
     <label>反映する日付<input id="day" type="date" required></label>
     <button id="load" type="button">対象日の候補を読み込む</button>
-    <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。</p>
+    <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。再提出しても、その月の初回提出の順番を保ちます。</p>
     <p class="small">日付を変えたり、候補を読み込み直したりすると、対象者の選択と休憩の指定はリセットされます。</p>
     <div id="candidate-area" hidden>
       <p id="day-type"></p>
       <p id="capacity" role="status"></p>
       <p class="small">上限を超えた場合は、反映しない人のチェックを外してください。外した人の提出は残ります。「休憩なし」も管理者が確認して選びます。</p>
-      <div class="table-wrap"><table><thead><tr><th>反映</th><th>所属</th><th>氏名</th><th>勤務希望</th><th>休憩の確認</th><th>休憩開始</th><th>休憩終了</th></tr></thead><tbody id="candidates"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>反映</th><th>所属</th><th>氏名</th><th>勤務希望</th><th>その月の初回提出</th><th>休憩の確認</th><th>休憩開始</th><th>休憩終了</th></tr></thead><tbody id="candidates"></tbody></table></div>
     </div>
   </section>
   <section>

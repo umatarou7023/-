@@ -83,7 +83,7 @@ $("save-roster").addEventListener("click", async () => {
     const payload = rosterPayload();
     await api("/api/roster", payload);
     loadedRoster = JSON.stringify(payload); resetCandidates();
-    $("roster-note").textContent = "保存しました。この順を同時刻の並び順に使います。";
+    $("roster-note").textContent = "保存しました。反映する順番は、所属ごとの初回提出順です。";
     message("スタッフ一覧を保存しました。対象日の候補を読み込んでください。");
   } catch (e) { message(e.message); }
   finally { $("save-roster").disabled = false; }
@@ -120,7 +120,7 @@ async function loadCandidates(confirmReset=true) {
       const pick = document.createElement("input"); pick.type = "checkbox"; pick.className = "pick";
       pick.checked = !!person.role; pick.disabled = !person.role; pick.setAttribute("aria-label", `${person.name}を反映する`);
       const pickCell = document.createElement("td"); pickCell.append(pick); row.append(pickCell);
-      for (const text of [roles[person.role]?.label || "未登録", person.name, person.shift]) { const cell = document.createElement("td"); cell.textContent = text; row.append(cell); }
+      for (const text of [roles[person.role]?.label || "未登録", person.name, person.shift, person.first_submitted_at ? new Date(person.first_submitted_at).toLocaleString("ja-JP") : "未確認"]) { const cell = document.createElement("td"); cell.textContent = text; row.append(cell); }
       const mode = document.createElement("select"); mode.className = "rest-mode";
       mode.setAttribute("aria-label", `${person.name}の休憩`);
       mode.append(new Option(person.break_issue ? "要確認" : "未確認", ""), new Option(auto ? "休憩なし（自動）" : "休憩なし（確認済み）", "none"), new Option("時刻を指定", "time"));

@@ -62,6 +62,8 @@ def daily_candidates(records, roster, day):
             member = members.get(normalize_name(row["name"]))
             result.append({"id": record["id"], "name": member[2] if member else row["name"],
                            "role": member[0] if member else "", "order": member[1] if member else 0,
+                           "submission_order": record.get("first_id", record["id"]),
+                           "first_submitted_at": record.get("first_submitted_at", record.get("submitted_at", "")),
                            "shift": row["shift"], "issue": "" if member else "スタッフ一覧に未登録"})
     # 休みへの再提出や、その日の希望の削除も、読み込み済み画面を無効にする。
     return result, fingerprint({"day": day, "records": records, "roster": roster})
@@ -156,7 +158,7 @@ def make_daily_plan(book, data, candidates):
         raise InputError("休憩を確認してください。")
     updates, placements = [], []
     for role, (label, slots) in GROUPS.items():
-        people = sorted((c for c in chosen if c["role"] == role), key=lambda c: (minutes(c["shift"].split("-")[0]), c["order"]))
+        people = sorted((c for c in chosen if c["role"] == role), key=lambda c: c.get("submission_order", c["id"]))
         for index, row in enumerate(slots):
             person = people[index] if index < len(people) else None
             values = {"C": None, "D": None, "E": None, "H": None, "I": None}
