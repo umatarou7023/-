@@ -7,7 +7,7 @@ let loadedRoster = "";
 let loadedBreakSettings = "";
 
 function message(text) { $("status").textContent = text; $("status").hidden = !text; }
-function invalidate() { reviewed = null; $("result").hidden = true; $("overwrite").checked = false; }
+function invalidate() { reviewed = null; $("result").hidden = true; $("overwrite").checked = false; $("formula-repairs-confirmed").checked = false; }
 function resetCandidates() { version = ""; loadedDay = ""; $("candidates").replaceChildren(); $("candidate-area").hidden = true; invalidate(); }
 function rosterPayload() {
   const names = (id) => $(id).value.split(/\r?\n/).map((n) => n.trim()).filter(Boolean);
@@ -159,7 +159,7 @@ $("file").addEventListener("change", async () => {
     fileData = encoded; $("sheet").replaceChildren(...result.sheets.map((n) => new Option(n, n))); message("");
   } catch (e) { message(e.message); }
 });
-for (const id of ["sheet", "date-confirmed"]) $(id).addEventListener("change", invalidate);
+for (const id of ["sheet", "date-confirmed", "repair-blank-formulas"]) $(id).addEventListener("change", invalidate);
 $("sample").addEventListener("click", async () => {
   try {
     const response = await api(`/api/daily-sample?day=${encodeURIComponent($("day").value)}`);
@@ -171,7 +171,7 @@ function payload() {
   ShiftInput.normalizeTimeFields();
   const selected = selectedRows(), breaks = {};
   for (const row of selected) breaks[row.dataset.id] = {mode: row.querySelector(".rest-mode").value, start: row.querySelector(".rest-start").value, end: row.querySelector(".rest-end").value};
-  return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
+  return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, repair_blank_formulas: $("repair-blank-formulas").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
 }
 function appendRow(target, values, conflict=false) {
   const row = document.createElement("tr"); if (conflict) row.className = "conflict";
@@ -189,6 +189,12 @@ $("preview").addEventListener("click", async () => {
     $("placements").replaceChildren(); $("updates").replaceChildren();
     for (const p of result.placements) appendRow("placements", [p.role, p.name, p.shift, p.break, p.cell]);
     for (const u of result.updates) appendRow("updates", [u.name, u.cell, u.previous || "（空欄）", u.next || "（空欄に戻す）"], u.conflict);
+    const repairs = result.formula_repairs || [];
+    $("formula-repairs").replaceChildren();
+    for (const repair of repairs) appendRow("formula-repairs", [repair.role, repair.name_cell, repair.cell, repair.formula]);
+    $("formula-repair-area").hidden = repairs.length === 0;
+    $("formula-repairs-confirm-wrap").hidden = repairs.length === 0;
+    $("formula-repair-summary").textContent = `補完する勤務帯数式：${repairs.length}セル（開いて一覧を確認）`;
     $("excluded").textContent = `今回は反映しない人（提出は保存済み）：${result.excluded.join("、") || "なし"}`;
     $("warnings").textContent = (result.date_missing ? "注意：Excelの日付は未設定です。対象日をExcel側で設定してください。\n" : "") + result.warnings.join("\n");
     reviewed = {data, token: result.plan_token}; $("result").hidden = false; message("");
@@ -200,7 +206,7 @@ $("download").addEventListener("click", async () => {
   if (!reviewed || JSON.stringify(reviewed.data) !== JSON.stringify(payload())) { invalidate(); message("もう一度プレビューしてください。"); return; }
   $("download").disabled = true;
   try {
-    const response = await api("/api/daily-export", {...reviewed.data, plan_token: reviewed.token, overwrite: $("overwrite").checked});
+    const response = await api("/api/daily-export", {...reviewed.data, plan_token: reviewed.token, overwrite: $("overwrite").checked, formula_repairs_confirmed: $("formula-repairs-confirmed").checked});
     const url = URL.createObjectURL(await response.blob()), link = document.createElement("a");
     link.href = url; link.download = `日別シフト_ベータ_${reviewed.data.day}.xlsx`; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
     message("コピーを出力しました。Excelで再計算して、日付・勤務帯・合計・プルダウンを確認してください。");

@@ -281,6 +281,8 @@ def create_app(config=None):
                     return jsonify(**plan, plan_token=token)
                 if data.get("plan_token") != token:
                     raise InputError("確認内容が変わりました。反映内容をもう一度プレビューしてください。")
+                if plan["formula_repairs"] and data.get("formula_repairs_confirmed") is not True:
+                    raise InputError("補完する勤務帯数式の一覧を確認し、補完の確認にチェックしてください。")
                 if any(item["conflict"] for item in plan["updates"]) and data.get("overwrite") is not True:
                     raise InputError("変更・消去する既存の値があります。確認表を見て、上書き・消去の許可にチェックしてください。")
                 return excel_response(patch_daily_excel(data["file"], data["sheet"], plan))

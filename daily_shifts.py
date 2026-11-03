@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 from shifts import InputError, normalize_name, normalize_numeric, normalize_clock
+from formula_repair import band_formula, plan_band_repairs
 
 GROUPS = {"kitchen": ("キッチン", list(range(15, 31, 2))),
           "hall": ("ホール", list(range(34, 54, 2)))}
@@ -90,7 +91,6 @@ def validate_template(book, sheet_name):
                     raise InputError(f"入力先{col}{row}に数式があるため停止しました。")
             expected = {dest: f'={rounding}({source}{row},"0:15")'
                         for dest, source, rounding in (("F", "D", "CEILING"), ("G", "E", "FLOOR"), ("J", "H", "CEILING"), ("K", "I", "FLOOR"))}
-            expected["L"] = f'=IF(AND($J{row}<=L$56,$K{row}>L$56),"・・",IF(AND($F{row}<=L$56,$G{row}>L$56),"・",""))'
             for col, formula in expected.items():
                 if sheet[f"{col}{row}"].value != formula:
                     raise InputError(f"{col}{row}の計算式が確認済みの形式と違います。表の構成を確認してください。")
@@ -123,6 +123,7 @@ def show_value(value):
 
 def make_daily_plan(book, data, candidates):
     sheet = validate_template(book, data.get("sheet", ""))
+    repairs = plan_band_repairs(sheet, [row for _, rows in GROUPS.values() for row in rows], data.get("repair_blank_formulas") is True)
     day = target_day(data.get("day"))
     try:
         axis_start = minutes(show_value(sheet["L5"].value))
@@ -191,7 +192,7 @@ def make_daily_plan(book, data, candidates):
                 updates.append({"cell": cell.coordinate, "value": value, "previous": previous, "next": new,
                                 "conflict": cell.value is not None, "name": person["name"] if person else "未使用枠を空欄に戻す"})
     excluded = [c["name"] for c in candidates if c["id"] not in ids]
-    return {"placements": placements, "updates": updates, "excluded": excluded,
+    return {"placements": placements, "updates": updates, "excluded": excluded, "formula_repairs": repairs,
             "date_missing": workbook_day is None,
             "warnings": ["未使用の枠は名前・勤務時間・休憩時間を空欄に戻します。", "休憩は管理者の指定内容です。法令や職場のルールへの適合を自動判定する機能はありません。", "勤務帯・合計はExcelで再計算して確認してください。"]}
 
@@ -209,9 +210,15 @@ def patch_daily_excel(encoded, sheet_name, plan):
         sheet_path = target.lstrip("/") if target.startswith("/") else posixpath.normpath("xl/" + target)
         doc = minidom.parseString(zin.read(sheet_path))
         cells = {c.getAttribute("r"): c for c in doc.getElementsByTagNameNS(MAIN_NS, "c")}
-        for item in plan["updates"]:
-            coordinate, value = item["cell"], item["value"]
+        for item in [*plan["updates"], *plan.get("formula_repairs", [])]:
+            coordinate, value = item["cell"], item.get("value")
             cell = cells.get(coordinate)
+            if "formula" in item and cell is not None:
+                def content(node):
+                    return "".join(child.data if child.nodeType in (child.TEXT_NODE, child.CDATA_SECTION_NODE) else content(child) for child in node.childNodes)
+                existing = [node for node in cell.childNodes if node.nodeType == node.ELEMENT_NODE and (node.localName == "f" or (node.localName in {"v", "is"} and content(node) != ""))]
+                if existing:
+                    raise InputError(f"{coordinate}が空白として確認できません。補完を止めました。")
             if cell is None:
                 row_number = re.search(r"\d+$", coordinate).group()
                 row = next(r for r in doc.getElementsByTagNameNS(MAIN_NS, "row") if r.getAttribute("r") == row_number)
@@ -226,7 +233,11 @@ def patch_daily_excel(encoded, sheet_name, plan):
                 cell.removeChild(child)
             if cell.hasAttribute("t"):
                 cell.removeAttribute("t")
-            if isinstance(value, str):
+            if "formula" in item:
+                node = doc.createElementNS(MAIN_NS, "f")
+                node.appendChild(doc.createTextNode(item["formula"].removeprefix("=")))
+                cell.appendChild(node)
+            elif isinstance(value, str):
                 cell.setAttribute("t", "inlineStr")
                 inline = doc.createElementNS(MAIN_NS, "is")
                 text = doc.createElementNS(MAIN_NS, "t")
@@ -290,10 +301,16 @@ def sample_daily_book(day_value):
                 sheet[f"{dest}{row}"] = f'={rounding}({source}{row},"0:15")'
             for col in range(12, 76):
                 letter = get_column_letter(col)
-                sheet[f"{letter}{row}"] = f'=IF(AND($J{row}<={letter}$56,$K{row}>{letter}$56),"・・",IF(AND($F{row}<={letter}$56,$G{row}>{letter}$56),"・",""))'
+                sheet[f"{letter}{row}"] = band_formula(row, letter)
                 sheet[f"{letter}{row}"].number_format = ";;;"
             sheet[f"BX{row}"] = f'=COUNTIF(L{row}:BW{row},"・")/4'
             sheet.conditional_formatting.add(f"L{row}:BW{row}", CellIsRule(operator="equal", formula=['"・"'], fill=PatternFill("solid", fgColor="000000")))
+    for column in range(12, 76):
+        letter = get_column_letter(column)
+        sheet[f"{letter}31"] = f'=COUNTIF({letter}15:{letter}30,"・")'
+        sheet[f"{letter}54"] = f'=COUNTIF({letter}34:{letter}53,"・")'
+    sheet.row_dimensions[31].hidden = True
+    sheet.row_dimensions[54].hidden = True
     for col in ("C", "D", "E", "H", "I"):
         sheet.column_dimensions[col].width = 16
     for col in ("F", "G", "J", "K"):

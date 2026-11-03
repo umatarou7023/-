@@ -44,6 +44,8 @@
     <h2><span class="step">3</span>Excelを選んで確認する</h2>
     <div class="grid"><label>Excelのコピー（.xlsx）<input id="file" type="file" accept=".xlsx"></label><label>反映先シート<select id="sheet"><option value="">Excelを選んでください</option></select></label></div>
     <button id="sample" type="button" class="secondary">対象日の日別お試しExcelをダウンロード</button>
+    <label class="check"><input type="checkbox" id="repair-blank-formulas">空白の勤務帯数式を補完する（コピーのみ）</label>
+    <p class="small">勤務帯の計算欄（L〜BW列の従業員の行）だけを調べます。配置・時間目盛り・集計式・色設定が確認できた場合に限り、空白のセルに式を追加します。既存の式が違う場合は停止します。</p>
     <label class="check"><input type="checkbox" id="date-confirmed">選んだシートが対象日の表であることを確認しました</label>
     <p class="small">Excelの日付と対象日が違う場合は停止します。日付が未設定のコピーでは警告を出します。日付のセルは変更しないので、Excel側で正しい日付を設定してください。</p>
     <p><strong>未使用枠の名前・勤務時間・休憩時間は空欄に戻します。</strong>変更・消去する値は下の確認表にすべて表示し、既存の値がある場合は許可を求めます。</p>
@@ -56,8 +58,14 @@
     <div class="table-wrap"><table><thead><tr><th>所属</th><th>氏名</th><th>勤務</th><th>休憩</th><th>名前のセル</th></tr></thead><tbody id="placements"></tbody></table></div>
     <h3>変更・消去するセル</h3>
     <div class="table-wrap"><table><thead><tr><th>対象者・枠</th><th>セル</th><th>現在の値</th><th>反映する値</th></tr></thead><tbody id="updates"></tbody></table></div>
+    <details id="formula-repair-area" hidden>
+      <summary id="formula-repair-summary">補完する勤務帯数式</summary>
+      <p class="small">名前欄の行に対応する式です。未使用の従業員枠も含め、確認済みの勤務帯エリアの空白だけを補完します。</p>
+      <div class="table-wrap"><table><thead><tr><th>所属</th><th>名前のセル</th><th>補完セル</th><th>追加する数式</th></tr></thead><tbody id="formula-repairs"></tbody></table></div>
+    </details>
+    <label class="check" id="formula-repairs-confirm-wrap" hidden><input id="formula-repairs-confirmed" type="checkbox">補完するセルと数式の一覧を確認しました</label>
     <label class="check"><input id="overwrite" type="checkbox">色付きのセルにある既存の値を変更・消去することを確認しました</label>
-    <p class="small">数式、勤務帯の表示設定、プルダウン、外部リンクは書き換えず、入力欄だけを更新します。外部リンク先の動作やExcelの再計算結果は別途確認が必要です。</p>
+    <p class="small">既存の数式・勤務帯の表示設定・プルダウン・外部リンクを保持します。補完を選んだ場合だけ、確認した空白の勤務帯セルに式を追加します。外部リンク先の動作やExcelの再計算結果は別途確認が必要です。</p>
     <button id="download" type="button">反映済みExcelをダウンロード</button>
   </section>
   <footer>これはベータ版です。希望から採用する人は管理者が選びます。必要人数・休憩のルール・勤務の確定を自動判断しません。</footer>
