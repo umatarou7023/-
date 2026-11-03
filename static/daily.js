@@ -205,7 +205,7 @@ $("preview").addEventListener("click", async () => {
     $("formula-repairs-confirm-wrap").hidden = repairs.length === 0;
     $("formula-repair-summary").textContent = `補完する勤務帯数式：${repairs.length}セル（開いて一覧を確認）`;
     $("excluded").textContent = `今回は反映しない人（提出は保存済み）：${result.excluded.join("、") || "なし"}`;
-    $("warnings").textContent = (result.date_missing ? "注意：Excelの日付は未設定です。対象日をExcel側で設定してください。\n" : "") + result.warnings.join("\n");
+    $("warnings").textContent = (result.date_missing ? "注意：Excelの月・日が未設定か確認できません。対象日のシートか確認し、必要に応じてExcel側で設定してください。\n" : "") + result.warnings.join("\n");
     reviewed = {data, token: result.plan_token}; $("result").hidden = false; message("");
     $("result").scrollIntoView({behavior:"smooth"});
   } catch (e) { message(e.message); }

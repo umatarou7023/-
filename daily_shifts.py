@@ -130,17 +130,18 @@ def make_daily_plan(book, data, candidates):
     except InputError:
         raise InputError("勤務帯の表示開始時刻（L5）が確認できません。Excel側の設定を確認してください。")
     axis_end = axis_start + 64 * 15  # L〜BWの64枠。1枠15分。
-    # 日付の式は触らない。既知の日付と違う場合は明示確認でも通さない。
+    # 古い年のテンプレートを再利用できるよう、照合の年は管理画面の対象年を使う。
+    # 日付の式やExcelに印字される年は変更しない。
     if sheet["E5"].value != "=DATE(C4,B5,B9)":
         raise InputError("日付の計算方法が確認済みの形式と違います。")
     try:
-        workbook_day = date(*(int(sheet[cell].value) for cell in ("C4", "B5", "B9")))
-    except (ValueError, TypeError):
+        workbook_day = date(day.year, int(sheet["B5"].value), int(sheet["B9"].value))
+    except (ValueError, TypeError, OverflowError):
         workbook_day = None
     if workbook_day and workbook_day != day:
-        raise InputError(f"Excelの日付（{workbook_day}）と反映日（{day}）が違います。Excelのコピー側の日付を設定してください。")
+        raise InputError(f"Excelの月日（{workbook_day.month}月{workbook_day.day}日）と反映日（{day.month}月{day.day}日）が違います。Excelの年は照合していません。対象日またはコピーの月日を確認してください。")
     if data.get("date_confirmed") is not True:
-        raise InputError("このシートが対象日の表であることを確認してください。日付未設定のExcelは出力後に設定が必要です。")
+        raise InputError("このシートが対象日の表であることを確認してください。月・日が未設定のExcelは出力後に設定が必要です。")
     ids = data.get("selected_ids")
     if not isinstance(ids, list) or not ids or any(type(i) is not int for i in ids) or len(ids) != len(set(ids)):
         raise InputError("反映する人を1人以上選択してください。")
@@ -194,7 +195,7 @@ def make_daily_plan(book, data, candidates):
     excluded = [c["name"] for c in candidates if c["id"] not in ids]
     return {"placements": placements, "updates": updates, "excluded": excluded, "formula_repairs": repairs,
             "date_missing": workbook_day is None,
-            "warnings": ["未使用の枠は名前・勤務時間・休憩時間を空欄に戻します。", "休憩は管理者の指定内容です。法令や職場のルールへの適合を自動判定する機能はありません。", "勤務帯・合計はExcelで再計算して確認してください。"]}
+            "warnings": ["未使用の枠は名前・勤務時間・休憩時間を空欄に戻します。", "休憩は管理者の指定内容です。法令や職場のルールへの適合を自動判定する機能はありません。", "勤務帯・合計はExcelで再計算して確認してください。", f"提出内容は管理画面の対象日（{day.isoformat()}）で照合しています。Excelの年欄（C4）は照合に使わず、コピーにも元の表示を残します。"]}
 
 
 def patch_daily_excel(encoded, sheet_name, plan):

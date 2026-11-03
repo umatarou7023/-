@@ -30,6 +30,7 @@
   <section>
     <h2><span class="step">2</span>対象日の提出を読み込む</h2>
     <label>反映する日付<input id="day" type="date" required></label>
+    <p class="small">提出内容はここで選んだ年月日で読み込みます。Excelが2023年のテンプレートでも使えます。Excel内の年は照合に使いません。</p>
     <button id="load" type="button">対象日の候補を読み込む</button>
     <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。再提出しても、その月の初回提出の順番を保ちます。</p>
     <p class="small">日付を変えたり、候補を読み込み直したりすると、対象者の選択と休憩の指定はリセットされます。</p>
@@ -47,7 +48,7 @@
     <p><strong id="formula-repair-setting">数式の自動補完設定を読み込み中…</strong> ／ <a href="/settings">設定ページでON／OFFを変更</a></p>
     <p class="small">勤務帯の計算欄（L〜BW列の従業員の行）だけを調べます。配置・時間目盛り・集計式・色設定が確認できた場合に限り、空白のセルに式を追加します。既存の式が違う場合は停止します。</p>
     <label class="check"><input type="checkbox" id="date-confirmed">選んだシートが対象日の表であることを確認しました</label>
-    <p class="small">Excelの日付と対象日が違う場合は停止します。日付が未設定のコピーでは警告を出します。日付のセルは変更しないので、Excel側で正しい日付を設定してください。</p>
+    <p class="small">Excelの年は照合に使わず、月・日が対象日と一致するか確認します。月・日が未設定なら警告を出します。年の表示や日付のセルは変更しないので、印刷する日付はExcelで確認してください。</p>
     <p><strong>未使用枠の名前・勤務時間・休憩時間は空欄に戻します。</strong>変更・消去する値は下の確認表にすべて表示し、既存の値がある場合は許可を求めます。</p>
     <button id="preview" type="button">並び順・反映セルを確認する →</button>
   </section>
