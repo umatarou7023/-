@@ -26,6 +26,14 @@ async function loadRoster() {
     loadedRoster = JSON.stringify(rosterPayload());
   } catch (e) { message(e.message); }
 }
+function displayExcelSettings(settings) {
+  $("formula-repair-setting").textContent = `空白の勤務帯数式の自動補完：${settings.repair_blank_formulas ? "ON" : "OFF"}`;
+}
+async function loadExcelSettings() {
+  try { displayExcelSettings((await (await api("/api/excel-settings")).json()).settings); }
+  catch (e) { message(e.message); $("formula-repair-setting").textContent = "数式の補完設定を読み込めませんでした。"; }
+}
+loadExcelSettings();
 function breakSettingsPayload() {
   ShiftInput.normalizeTimeFields();
   const result = {mode: document.querySelector('input[name="workflow-mode"]:checked').value};
@@ -69,6 +77,7 @@ $("save-break-settings").addEventListener("click", async () => {
       loadedBreakSettings = JSON.stringify(result.settings); message("保存後に設定が変わりました。変更分も保存してください。"); return;
     }
     displayBreakSettings(result.settings);
+    displayExcelSettings(result.excel_settings);
     if (result.settings.mode === "auto") await loadCandidates(false);
     else message("手動モードを保存しました。候補を読み込んで、休憩を指定してください。");
   } catch (e) { message(e.message); }
@@ -159,7 +168,7 @@ $("file").addEventListener("change", async () => {
     fileData = encoded; $("sheet").replaceChildren(...result.sheets.map((n) => new Option(n, n))); message("");
   } catch (e) { message(e.message); }
 });
-for (const id of ["sheet", "date-confirmed", "repair-blank-formulas"]) $(id).addEventListener("change", invalidate);
+for (const id of ["sheet", "date-confirmed"]) $(id).addEventListener("change", invalidate);
 $("sample").addEventListener("click", async () => {
   try {
     const response = await api(`/api/daily-sample?day=${encodeURIComponent($("day").value)}`);
@@ -171,7 +180,7 @@ function payload() {
   ShiftInput.normalizeTimeFields();
   const selected = selectedRows(), breaks = {};
   for (const row of selected) breaks[row.dataset.id] = {mode: row.querySelector(".rest-mode").value, start: row.querySelector(".rest-start").value, end: row.querySelector(".rest-end").value};
-  return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, repair_blank_formulas: $("repair-blank-formulas").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
+  return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
 }
 function appendRow(target, values, conflict=false) {
   const row = document.createElement("tr"); if (conflict) row.className = "conflict";

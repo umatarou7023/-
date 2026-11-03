@@ -126,7 +126,7 @@ def plan_band_repairs(sheet, rows, enabled=False):
                 continue
             if cell.value in (None, ""):
                 if not enabled:
-                    raise InputError(f"{cell.coordinate}の勤務帯の計算式が空白です。「空白の勤務帯数式を補完する」を選ぶと、配置と目盛りを確認して補完できます。")
+                    raise InputError(f"{cell.coordinate}の勤務帯の計算式が空白です。設定ページで「空白の勤務帯数式を自動補完する」をONにすると、配置と目盛りを確認して補完できます。")
                 repairs.append({"cell": cell.coordinate, "formula": expected,
                                 "role": "キッチン" if row < 31 else "ホール", "name_cell": f"C{row}"})
             else:

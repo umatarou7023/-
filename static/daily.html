@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>日別シフト・ベータ｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/input-normalize.js" defer></script><script src="/daily.js" defer></script></head>
 <body><main>
-  <header><span class="badge">管理者用 · 日別表のベータ版</span><h1>希望を確認して、<br>日別シフトへ。</h1><p>キッチン8人・ホール10人。全員の希望を残したまま、<br>反映する人と休憩を確認してからExcelのコピーに出力します。</p><a href="/">提出リンク・月別表の管理画面へ</a></header>
+  <header><span class="badge">管理者用 · 日別表のベータ版</span><h1>希望を確認して、<br>日別シフトへ。</h1><p>キッチン8人・ホール10人。全員の希望を残したまま、<br>反映する人と休憩を確認してからExcelのコピーに出力します。</p><nav class="page-nav"><a href="/">提出リンク・月別表の管理画面へ</a><a href="/settings">設定</a></nav></header>
   <aside>Book3型の表向けです。別の形式には推測で書き込みません。実際の勤務表は使わず、コピーで試してください。Excelでの黒い勤務帯・合計の再計算は、出力後に確認が必要です。</aside>
   <section>
     <h2>使い方を選ぶ（次回も保存）</h2>
@@ -44,7 +44,7 @@
     <h2><span class="step">3</span>Excelを選んで確認する</h2>
     <div class="grid"><label>Excelのコピー（.xlsx）<input id="file" type="file" accept=".xlsx"></label><label>反映先シート<select id="sheet"><option value="">Excelを選んでください</option></select></label></div>
     <button id="sample" type="button" class="secondary">対象日の日別お試しExcelをダウンロード</button>
-    <label class="check"><input type="checkbox" id="repair-blank-formulas">空白の勤務帯数式を補完する（コピーのみ）</label>
+    <p><strong id="formula-repair-setting">数式の自動補完設定を読み込み中…</strong> ／ <a href="/settings">設定ページでON／OFFを変更</a></p>
     <p class="small">勤務帯の計算欄（L〜BW列の従業員の行）だけを調べます。配置・時間目盛り・集計式・色設定が確認できた場合に限り、空白のセルに式を追加します。既存の式が違う場合は停止します。</p>
     <label class="check"><input type="checkbox" id="date-confirmed">選んだシートが対象日の表であることを確認しました</label>
     <p class="small">Excelの日付と対象日が違う場合は停止します。日付が未設定のコピーでは警告を出します。日付のセルは変更しないので、Excel側で正しい日付を設定してください。</p>

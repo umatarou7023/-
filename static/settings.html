@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>設定｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/settings.js" defer></script></head>
+<body><main>
+  <header><span class="badge">管理者用 · ベータ版</span><h1>設定</h1><p>Excelへの反映方法を設定します。<br>保存した内容は、次に開いたときも使います。</p><nav class="page-nav"><a href="/daily">日別管理画面へ戻る</a><a href="/">提出リンク・月別表の管理画面</a></nav></header>
+  <section>
+    <h2>Excelの数式補完</h2>
+    <form id="excel-settings-form">
+      <label class="switch-setting" for="repair-blank-formulas"><span><strong>空白の勤務帯数式を自動補完する</strong><br><span class="small">Book3型の日別表に適用します。</span></span><input id="repair-blank-formulas" type="checkbox" role="switch" disabled><strong id="repair-state">読込中</strong></label>
+      <p><strong>ON：</strong>配置・時間目盛り・集計式・表示設定を確認し、勤務帯の空白セルにその行・列に合う式を補います。</p>
+      <p><strong>OFF：</strong>式の補完はせず、勤務帯の計算式に空白があれば反映を止めます。初期状態はOFFです。</p>
+      <p class="small">名前や開始・終了・休憩の入力欄には式を追加しません。既存の式が違う場合や構成を確認できない場合は、ONでも停止します。出力前の補完一覧の確認は残ります。元のExcelは変更せず、コピーを作ります。</p>
+      <button id="save-excel-settings" type="submit" disabled>設定を保存</button>
+    </form>
+    <p id="save-status" role="status" aria-live="polite">設定を読み込んでいます…</p>
+  </section>
+  <aside>設定は、このアプリの登録名・提出内容と同じ場所に保存します。ベータ起動では <code>beta-data</code> を残しておけば、アプリを再起動しても設定を使えます。</aside>
+</main></body></html>

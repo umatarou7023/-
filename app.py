@@ -92,6 +92,11 @@ def create_app(config=None):
     def daily_page():
         return static("daily.html")
 
+    @app.get("/settings")
+    @admin_required
+    def settings_page():
+        return static("settings.html")
+
     @app.get("/submit")
     def submit_page():
         return static("submit.html")
@@ -106,7 +111,7 @@ def create_app(config=None):
 
     @app.get("/<name>")
     def asset(name):
-        if name not in {"app.js", "style.css", "submit.js", "login.js", "daily.js", "input-normalize.js"}:
+        if name not in {"app.js", "style.css", "submit.js", "login.js", "daily.js", "input-normalize.js", "settings.js"}:
             return jsonify(error="ページがありません。"), 404
         return static(name)
 
@@ -200,6 +205,25 @@ def create_app(config=None):
             row = db.execute("SELECT value FROM settings WHERE name='break_settings'").fetchone()
         return parse_break_settings(json.loads(row[0])) if row else default_break_settings()
 
+    def parse_excel_settings(value):
+        if not isinstance(value, dict) or type(value.get("repair_blank_formulas")) is not bool:
+            raise InputError("空白の勤務帯数式の自動補完をONまたはOFFで設定してください。")
+        return {"repair_blank_formulas": value["repair_blank_formulas"]}
+
+    def get_excel_settings():
+        with sqlite3.connect(db_file) as db:
+            row = db.execute("SELECT value FROM settings WHERE name='excel_settings'").fetchone()
+        return parse_excel_settings(json.loads(row[0])) if row else {"repair_blank_formulas": False}
+
+    @app.route("/api/excel-settings", methods=["GET", "POST"])
+    @admin_required
+    def excel_settings():
+        if request.method == "POST":
+            value = parse_excel_settings(json_data())
+            with sqlite3.connect(db_file) as db:
+                db.execute("INSERT INTO settings(name,value) VALUES('excel_settings',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", (json.dumps(value),))
+        return jsonify(settings=get_excel_settings())
+
     @app.route("/api/break-settings", methods=["GET", "POST"])
     @admin_required
     def break_settings():
@@ -222,15 +246,16 @@ def create_app(config=None):
         day = target_day(day).isoformat()
         rows, version = daily_candidates(latest_records(day[:7]), get_roster(), day)
         settings = get_break_settings()
+        excel = get_excel_settings()
         rows, info = apply_break_rules(rows, settings, day)
-        return rows, fingerprint({"submissions": version, "settings": settings}), settings, info
+        return rows, fingerprint({"submissions": version, "settings": settings, "excel": excel}), settings, info, excel
 
     @app.get("/api/daily-candidates")
     @admin_required
     def candidates():
         day = request.args.get("day", "")
-        rows, version, settings, info = daily_context(day)
-        return jsonify(rows=rows, version=version, settings=settings, day_type=info)
+        rows, version, settings, info, excel = daily_context(day)
+        return jsonify(rows=rows, version=version, settings=settings, day_type=info, excel_settings=excel)
 
     def excel_response(content):
         return send_file(BytesIO(content), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name="shift-result.xlsx")
@@ -256,9 +281,11 @@ def create_app(config=None):
             if action == "inspect":
                 return jsonify(sheets=book.sheetnames)
             if action.startswith("daily-"):
-                people, version, settings, info = daily_context(data.get("day"))
+                people, version, settings, info, excel = daily_context(data.get("day"))
                 if data.get("version") != version:
-                    raise InputError("提出内容・スタッフ一覧・休憩設定が変わりました。候補を読み込み直して、もう一度確認してください。")
+                    raise InputError("提出内容・スタッフ一覧・休憩またはExcel補完の設定が変わりました。候補を読み込み直して、もう一度確認してください。")
+                # 設定ページの保存値を使う。古い画面から送られた一時的な指定では変更しない。
+                data = {**data, "repair_blank_formulas": excel["repair_blank_formulas"]}
                 if settings["mode"] == "auto":
                     ids = data.get("selected_ids", [])
                     if not isinstance(ids, list):

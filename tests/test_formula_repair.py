@@ -41,6 +41,7 @@ class FormulaRepairTests(unittest.TestCase):
         self.source = out.getvalue()
 
     def data(self, enabled=True):
+        self.assertEqual(self.post("/api/excel-settings", {"repair_blank_formulas": enabled}).status_code, 200)
         result = self.client.get("/api/daily-candidates?day=2026-11-20").json
         ids = [p["id"] for p in result["rows"]]
         return {"file": base64.b64encode(self.source).decode(), "sheet": "日別ベータ", "day": "2026-11-20", "date_confirmed": True, "version": result["version"], "selected_ids": ids, "breaks": {str(i): {"mode": "none"} for i in ids}, "repair_blank_formulas": enabled}
