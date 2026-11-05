@@ -83,7 +83,7 @@ class WebTests(unittest.TestCase):
             self.assertEqual(self.get(path).status_code, 401)
         self.assertEqual(self.get("/daily").status_code, 302)
         self.assertEqual(self.get("/settings").status_code, 302)
-        for path in ["/api/daily-preview", "/api/daily-export", "/api/roster", "/api/break-settings", "/api/excel-settings"]:
+        for path in ["/api/daily-preview", "/api/daily-export", "/api/daily-inspect", "/api/roster", "/api/break-settings", "/api/excel-settings"]:
             self.assertEqual(self.post(path, {}).status_code, 401)
         self.assertEqual(self.post("/api/login", {"password": "wrong"}).status_code, 401)
         self.assertEqual(self.client.post("/api/submit", json=self.submission(), base_url=self.base, headers={"Origin": "https://other.test"}).status_code, 403)

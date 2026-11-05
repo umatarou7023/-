@@ -11,6 +11,7 @@ from zipfile import ZipFile
 
 from shifts import InputError, normalize_name, normalize_numeric, normalize_clock
 from formula_repair import band_formula, plan_band_repairs
+from sheet_matching import validate_sheet_selection
 
 GROUPS = {"kitchen": ("キッチン", list(range(15, 31, 2))),
           "hall": ("ホール", list(range(34, 54, 2)))}
@@ -123,8 +124,9 @@ def show_value(value):
 
 def make_daily_plan(book, data, candidates):
     sheet = validate_template(book, data.get("sheet", ""))
-    repairs = plan_band_repairs(sheet, [row for _, rows in GROUPS.values() for row in rows], data.get("repair_blank_formulas") is True)
     day = target_day(data.get("day"))
+    selection = validate_sheet_selection(book, data, day)
+    repairs = plan_band_repairs(sheet, [row for _, rows in GROUPS.values() for row in rows], data.get("repair_blank_formulas") is True)
     try:
         axis_start = minutes(show_value(sheet["L5"].value))
     except InputError:
@@ -134,12 +136,6 @@ def make_daily_plan(book, data, candidates):
     # 日付の式やExcelに印字される年は変更しない。
     if sheet["E5"].value != "=DATE(C4,B5,B9)":
         raise InputError("日付の計算方法が確認済みの形式と違います。")
-    try:
-        workbook_day = date(day.year, int(sheet["B5"].value), int(sheet["B9"].value))
-    except (ValueError, TypeError, OverflowError):
-        workbook_day = None
-    if workbook_day and workbook_day != day:
-        raise InputError(f"Excelの月日（{workbook_day.month}月{workbook_day.day}日）と反映日（{day.month}月{day.day}日）が違います。Excelの年は照合していません。対象日またはコピーの月日を確認してください。")
     if data.get("date_confirmed") is not True:
         raise InputError("このシートが対象日の表であることを確認してください。月・日が未設定のExcelは出力後に設定が必要です。")
     ids = data.get("selected_ids")
@@ -194,8 +190,8 @@ def make_daily_plan(book, data, candidates):
                                 "conflict": cell.value is not None, "name": person["name"] if person else "未使用枠を空欄に戻す"})
     excluded = [c["name"] for c in candidates if c["id"] not in ids]
     return {"placements": placements, "updates": updates, "excluded": excluded, "formula_repairs": repairs,
-            "date_missing": workbook_day is None,
-            "warnings": ["未使用の枠は名前・勤務時間・休憩時間を空欄に戻します。", "休憩は管理者の指定内容です。法令や職場のルールへの適合を自動判定する機能はありません。", "勤務帯・合計はExcelで再計算して確認してください。", f"提出内容は管理画面の対象日（{day.isoformat()}）で照合しています。Excelの年欄（C4）は照合に使わず、コピーにも元の表示を残します。"]}
+            "date_missing": selection["date_missing"], "sheet_analysis": selection,
+            "warnings": ["未使用の枠は名前・勤務時間・休憩時間を空欄に戻します。", "休憩は管理者の指定内容です。法令や職場のルールへの適合を自動判定する機能はありません。", "勤務帯・合計はExcelで再計算して確認してください。", f"提出内容は管理画面の対象日（{day.isoformat()}）で照合しています。Excelの年欄（C4）は照合に使わず、コピーにも元の表示を残します。", *["管理者確認済み：" + issue for issue in selection["issues"]]]}
 
 
 def patch_daily_excel(encoded, sheet_name, plan):
@@ -280,6 +276,7 @@ def sample_daily_book(day_value):
     sheet["C4"], sheet["B5"], sheet["B9"] = day.year, day.month, day.day
     sheet["E5"] = "=DATE(C4,B5,B9)"
     sheet["E5"].number_format = "yyyy/m/d"
+    sheet["E9"] = "月火水木金土日"[day.weekday()]
     sheet["B15"], sheet["B34"] = "キッチン", "ホール"
     sheet["L5"] = 9/24
     sheet["L5"].number_format = "h:mm"

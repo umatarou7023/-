@@ -28,28 +28,35 @@
     <p class="small" id="roster-note"></p>
   </section>
   <section>
-    <h2><span class="step">2</span>対象日の提出を読み込む</h2>
-    <label>反映する日付<input id="day" type="date" required></label>
-    <p class="small">提出内容はここで選んだ年月日で読み込みます。Excelが2023年のテンプレートでも使えます。Excel内の年は照合に使いません。</p>
-    <button id="load" type="button">対象日の候補を読み込む</button>
-    <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。再提出しても、その月の初回提出の順番を保ちます。</p>
-    <p class="small">日付を変えたり、候補を読み込み直したりすると、対象者の選択と休憩の指定はリセットされます。</p>
-    <div id="candidate-area" hidden>
-      <p id="day-type"></p>
-      <p id="capacity" role="status"></p>
-      <p class="small">上限を超えた場合は、反映しない人のチェックを外してください。外した人の提出は残ります。「休憩なし」も管理者が確認して選びます。</p>
-      <div class="table-wrap"><table><thead><tr><th>反映</th><th>所属</th><th>氏名</th><th>勤務希望</th><th>その月の初回提出</th><th>休憩の確認</th><th>休憩開始</th><th>休憩終了</th></tr></thead><tbody id="candidates"></tbody></table></div>
+    <h2><span class="step">2</span>Excelのシフト表を選ぶ</h2>
+    <div class="grid"><label>対象年月（実際に作る年・月）<input id="context-month" type="month" required></label><label>Excelのコピー（.xlsx）<input id="file" type="file" accept=".xlsx"></label></div>
+    <p class="small">Excelに残った2023年などの古い年は使いません。月日が読めるシートでは、選ぶと対象日と提出候補を自動で読み込みます。</p>
+    <label>反映先シート（中身から選んだ候補）<select id="sheet"><option value="">Excelを選んでください</option></select></label>
+    <p id="sheet-count" role="status"></p>
+    <div id="sheet-analysis" hidden>
+      <h3 id="sheet-analysis-title"></h3><p id="sheet-notes" class="small"></p><ul id="sheet-issues"></ul>
+      <button id="use-sheet-date" type="button" class="secondary" hidden>候補日を使う</button>
+      <label class="check" id="sheet-review-wrap" hidden><input id="sheet-review-confirmed" type="checkbox">表示された違い・重複を確認し、このシートと対象日を使うことを確認しました</label>
     </div>
-  </section>
-  <section>
-    <h2><span class="step">3</span>Excelを選んで確認する</h2>
-    <div class="grid"><label>Excelのコピー（.xlsx）<input id="file" type="file" accept=".xlsx"></label><label>反映先シート<select id="sheet"><option value="">Excelを選んでください</option></select></label></div>
+    <details id="excluded-sheets-area" hidden><summary id="excluded-sheets-summary">候補に含めなかったシート</summary><p class="small">これらのシートは削除せず、出力するコピーにもそのまま残します。</p><div class="table-wrap"><table><thead><tr><th>シート名</th><th>理由</th></tr></thead><tbody id="excluded-sheets"></tbody></table></div></details>
     <button id="sample" type="button" class="secondary">対象日の日別お試しExcelをダウンロード</button>
     <p><strong id="formula-repair-setting">数式の自動補完設定を読み込み中…</strong> ／ <a href="/settings">設定ページでON／OFFを変更</a></p>
-    <p class="small">勤務帯の計算欄（L〜BW列の従業員の行）だけを調べます。配置・時間目盛り・集計式・色設定が確認できた場合に限り、空白のセルに式を追加します。既存の式が違う場合は停止します。</p>
+    <p class="small">空白の勤務帯数式を補完する場合も、配置・時間目盛り・集計式・色設定を確認します。既存の式が違えば停止します。</p>
+  </section>
+  <section>
+    <h2><span class="step">3</span>対象日の提出を確認する</h2>
+    <label>反映する日付（判定できれば自動設定）<input id="day" type="date" required></label>
+    <p class="small">曜日・タブ名の矛盾や日付の空欄がある場合は自動で確定しません。候補日を使うか、対象日を手入力して確認してください。</p>
+    <button id="load" type="button">対象日の候補を読み込む</button>
+    <p>「休み」と未入力の日は出勤候補に含めません。同じ人の同じ月は、最新の提出全体を使います。再提出しても、その月の初回提出順を保ちます。</p>
+    <p class="small">年月・日付・シートの変更や候補の再読込で、対象者の選択と休憩指定はリセットされます。</p>
+    <div id="candidate-area" hidden>
+      <p id="day-type"></p><p id="capacity" role="status"></p>
+      <p class="small">上限を超えた場合は、反映しない人のチェックを外してください。提出は残ります。「休憩なし」も管理者が確認して選びます。</p>
+      <div class="table-wrap"><table><thead><tr><th>反映</th><th>所属</th><th>氏名</th><th>勤務希望</th><th>その月の初回提出</th><th>休憩の確認</th><th>休憩開始</th><th>休憩終了</th></tr></thead><tbody id="candidates"></tbody></table></div>
+    </div>
     <label class="check"><input type="checkbox" id="date-confirmed">選んだシートが対象日の表であることを確認しました</label>
-    <p class="small">Excelの年は照合に使わず、月・日が対象日と一致するか確認します。月・日が未設定なら警告を出します。年の表示や日付のセルは変更しないので、印刷する日付はExcelで確認してください。</p>
-    <p><strong>未使用枠の名前・勤務時間・休憩時間は空欄に戻します。</strong>変更・消去する値は下の確認表にすべて表示し、既存の値がある場合は許可を求めます。</p>
+    <p class="small">年の表示や日付のセルは変更しないので、印刷する日付はExcelで確認してください。未使用枠の名前・勤務・休憩時間を空欄に戻す箇所もプレビューします。</p>
     <button id="preview" type="button">並び順・反映セルを確認する →</button>
   </section>
   <div id="status" role="status" aria-live="polite" hidden></div>

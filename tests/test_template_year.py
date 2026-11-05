@@ -31,7 +31,7 @@ class TemplateYearTests(unittest.TestCase):
         output = BytesIO(); self.book.save(output)
         result = self.client.get("/api/daily-candidates?day=2026-11-20").json
         ids = [p["id"] for p in result["rows"]]
-        return {"file": base64.b64encode(output.getvalue()).decode(), "sheet": self.book.active.title, "day": "2026-11-20", "date_confirmed": True, "version": result["version"], "selected_ids": ids, "breaks": {str(i): {"mode": "none"} for i in ids}}
+        return {"file": base64.b64encode(output.getvalue()).decode(), "sheet": self.book.active.title, "day": "2026-11-20", "date_confirmed": True, "sheet_review_confirmed": True, "version": result["version"], "selected_ids": ids, "breaks": {str(i): {"mode": "none"} for i in ids}}
 
     def test_old_year_template_accepts_selected_year_and_preserves_source_year(self):
         data = self.data(); preview = self.post("/api/daily-preview", data)

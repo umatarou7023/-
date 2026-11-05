@@ -2,13 +2,15 @@ const $ = (id) => document.getElementById(id);
 const roles = {kitchen: {label: "キッチン", limit: 8}, hall: {label: "ホール", limit: 10}};
 const now = new Date();
 $("day").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+$("context-month").value = $("day").value.slice(0, 7);
 let version = "", loadedDay = "", fileData = "", reviewed = null;
 let loadedRoster = "";
 let loadedBreakSettings = "";
+let inspection = null, selectedReport = null, inspectionSequence = 0, fileSequence = 0, candidateSequence = 0;
 
 function message(text) { $("status").textContent = text; $("status").hidden = !text; }
 function invalidate() { reviewed = null; $("result").hidden = true; $("overwrite").checked = false; $("formula-repairs-confirmed").checked = false; }
-function resetCandidates() { version = ""; loadedDay = ""; $("candidates").replaceChildren(); $("candidate-area").hidden = true; invalidate(); }
+function resetCandidates(cancelPending=true) { if (cancelPending) { candidateSequence++; $("load").disabled = false; } version = ""; loadedDay = ""; $("candidates").replaceChildren(); $("candidate-area").hidden = true; invalidate(); }
 function rosterPayload() {
   const names = (id) => $(id).value.split(/\r?\n/).map((n) => n.trim()).filter(Boolean);
   return {kitchen: names("kitchen"), hall: names("hall")};
@@ -60,7 +62,8 @@ async function loadBreakSettings() {
   try { displayBreakSettings((await (await api("/api/break-settings")).json()).settings); }
   catch (e) { message(e.message); $("break-settings-note").textContent = "設定を読み込めませんでした。画面を更新してください。"; }
 }
-Promise.all([loadRoster(), loadBreakSettings()]).then(() => {
+const initialized = Promise.all([loadRoster(), loadBreakSettings()]);
+initialized.then(() => {
   if (loadedBreakSettings && breakSettingsPayload().mode === "auto") loadCandidates(false);
 });
 for (const node of document.querySelectorAll('input[name="workflow-mode"], #weekday-rule, #weekday-start, #weekday-end, #weekend-rule, #weekend-start, #weekend-end')) node.addEventListener("input", () => {
@@ -77,7 +80,6 @@ $("save-break-settings").addEventListener("click", async () => {
       loadedBreakSettings = JSON.stringify(result.settings); message("保存後に設定が変わりました。変更分も保存してください。"); return;
     }
     displayBreakSettings(result.settings);
-    displayExcelSettings(result.excel_settings);
     if (result.settings.mode === "auto") await loadCandidates(false);
     else message("手動モードを保存しました。候補を読み込んで、休憩を指定してください。");
   } catch (e) { message(e.message); }
@@ -98,7 +100,7 @@ $("save-roster").addEventListener("click", async () => {
   finally { $("save-roster").disabled = false; }
 });
 $("day").addEventListener("change", () => {
-  resetCandidates(); $("date-confirmed").checked = false;
+  resetCandidates(); $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false; renderSheetAnalysis();
   if (JSON.stringify(breakSettingsPayload()) === loadedBreakSettings && breakSettingsPayload().mode === "auto") loadCandidates(false);
 });
 function selectedRows() { return [...$("candidates").children].filter((row) => row.querySelector(".pick").checked); }
@@ -116,12 +118,15 @@ async function loadCandidates(confirmReset=true) {
   if (JSON.stringify(breakSettingsPayload()) !== loadedBreakSettings) { message("モード・休憩設定を保存してから候補を読み込んでください。"); return; }
   if (confirmReset && version && !window.confirm("候補を読み込み直すと、選択と休憩の指定がリセットされます。続けますか？")) return;
   const day = $("day").value;
+  if (!day || day.slice(0, 7) !== $("context-month").value) { message("対象年月と対象日を選び、同じ月に合わせてください。"); return; }
+  const sequence = ++candidateSequence;
   $("load").disabled = true;
   try {
     const result = await (await api(`/api/daily-candidates?day=${encodeURIComponent(day)}`)).json();
-    if (day !== $("day").value || JSON.stringify(rosterPayload()) !== loadedRoster || JSON.stringify(breakSettingsPayload()) !== loadedBreakSettings) return;
+    if (sequence !== candidateSequence || day !== $("day").value || JSON.stringify(rosterPayload()) !== loadedRoster || JSON.stringify(breakSettingsPayload()) !== loadedBreakSettings) return;
     displayBreakSettings(result.settings);
-    resetCandidates(); version = result.version; loadedDay = day;
+    displayExcelSettings(result.excel_settings);
+    resetCandidates(false); version = result.version; loadedDay = day;
     const auto = result.settings.mode === "auto";
     $("day-type").textContent = `${day}：${result.day_type.label}${result.day_type.holiday ? `（${result.day_type.holiday}）` : ""} ／ ${auto ? "保存した固定休憩を自動入力" : "休憩は管理者が指定"}`;
     for (const person of result.rows) {
@@ -150,25 +155,102 @@ async function loadCandidates(confirmReset=true) {
     }
     $("candidate-area").hidden = false; updateCapacity();
     message(result.rows.length ? `${result.rows.length}人の出勤希望を読み込みました。${auto ? "固定休憩を適用しました。人数と内容を確認してください。" : "対象者と休憩を確認してください。"}` : "対象日の出勤希望はありません。");
-  } catch (e) { resetCandidates(); message(e.message); }
-  finally { $("load").disabled = false; }
+  } catch (e) { if (sequence === candidateSequence) { resetCandidates(false); message(e.message); } }
+  finally { if (sequence === candidateSequence) $("load").disabled = false; }
 }
 $("load").addEventListener("click", () => loadCandidates());
 $("candidates").addEventListener("input", () => { invalidate(); updateCapacity(); });
+function setDateBounds() {
+  const context = $("context-month").value;
+  $("day").min = context ? `${context}-01` : "";
+  if (!context) { $("day").max = ""; return; }
+  const [year, month] = context.split("-").map(Number);
+  $("day").max = `${context}-${new Date(year, month, 0).getDate()}`;
+}
+setDateBounds();
+function renderSheetAnalysis() {
+  $("sheet-analysis").hidden = !selectedReport;
+  if (!selectedReport) return;
+  const report = selectedReport, current = $("day").value, issues = [...report.issues];
+  if (current && report.date && current !== report.date) issues.push(`候補日は${report.date}ですが、対象日は${current}です。`);
+  if (current) {
+    const weekday = (new Date(`${current}T00:00:00Z`).getUTCDay() + 6) % 7;
+    if (report.weekday !== null && report.weekday !== weekday) issues.push("対象日とE9の曜日が一致しません。");
+    if (report.title_weekday !== null && report.title_weekday !== weekday) issues.push("対象日とタブ名の曜日が一致しません。");
+  }
+  $("sheet-analysis-title").textContent = report.blocked ? "日付の修正が必要です" : report.automatic && current === report.date && !issues.length ? `対象日を自動設定：${report.date}` : "このシートは対象日の確認が必要です";
+  $("sheet-notes").textContent = [...report.notes, `日付の読み取り元：${report.source}`].join(" ／ ");
+  $("sheet-issues").replaceChildren();
+  for (const issue of new Set(issues)) { const item = document.createElement("li"); item.textContent = issue; $("sheet-issues").append(item); }
+  $("sheet-review-wrap").hidden = !issues.length || report.blocked;
+  $("use-sheet-date").hidden = !report.date || (report.automatic && current === report.date) || report.blocked;
+  $("use-sheet-date").disabled = !!report.date && report.date.slice(0,7) !== $("context-month").value;
+  $("use-sheet-date").textContent = `候補日 ${report.date || ""} を対象日にする`;
+}
+async function applySelectedSheet() {
+  resetCandidates(); $("day").value = ""; $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false;
+  selectedReport = inspection?.candidates.find((row) => row.sheet === $("sheet").value) || null;
+  if (selectedReport?.automatic) $("day").value = selectedReport.date;
+  renderSheetAnalysis();
+  if (selectedReport?.automatic) {
+    const report = selectedReport;
+    await initialized;
+    if (selectedReport === report && $("day").value === report.date) await loadCandidates(false);
+  } else if (selectedReport) message("シートの確認事項を読み、候補日を使うか対象日を入力してください。");
+}
+async function inspectFile(keepSheet="") {
+  const sequence = ++inspectionSequence, encoded = fileData, context = $("context-month").value;
+  inspection = null; selectedReport = null; resetCandidates(); $("day").value = "";
+  $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false; renderSheetAnalysis();
+  $("sheet").replaceChildren(new Option("シフト表を調べています…", "")); $("sheet").disabled = true;
+  $("excluded-sheets-area").hidden = true; $("sheet-count").textContent = "";
+  try {
+    const result = await (await api("/api/daily-inspect", {file: encoded, context_month: context})).json();
+    if (sequence !== inspectionSequence || encoded !== fileData || context !== $("context-month").value) return;
+    inspection = result;
+    $("sheet").replaceChildren(new Option(result.candidates.length ? "反映するシフト表を選んでください" : "対応するシフト表が見つかりません", ""));
+    for (const row of result.candidates) {
+      const tag = row.blocked ? "要修正" : row.needs_review ? "要確認" : "日付確認済み";
+      $("sheet").append(new Option(`${row.sheet} ｜ ${row.date || "日付未確定"} ｜ ${tag}`, row.sheet));
+    }
+    $("sheet-count").textContent = `シフト表の候補 ${result.candidates.length}枚 ／ 対象外・未対応 ${result.excluded.length}枚。候補は日付順に表示し、Excel内のタブ順は変更しません。`;
+    $("excluded-sheets").replaceChildren();
+    for (const row of result.excluded) appendRow("excluded-sheets", [row.sheet, row.reason]);
+    $("excluded-sheets-area").hidden = !result.excluded.length;
+    $("excluded-sheets-summary").textContent = `候補に含めなかったシート：${result.excluded.length}枚`;
+    if (keepSheet && result.candidates.some((row) => row.sheet === keepSheet)) { $("sheet").value = keepSheet; await applySelectedSheet(); }
+    else message("シフト表の候補から、反映するシートを選んでください。");
+  } catch (e) {
+    if (sequence === inspectionSequence) { $("sheet").replaceChildren(new Option("読み込めませんでした", "")); message(e.message); }
+  } finally { if (sequence === inspectionSequence) $("sheet").disabled = false; }
+}
 $("file").addEventListener("change", async () => {
-  fileData = ""; invalidate(); $("date-confirmed").checked = false;
+  const sequence = ++fileSequence;
+  inspectionSequence++; fileData = ""; inspection = null; selectedReport = null; resetCandidates();
+  $("day").value = ""; $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false; renderSheetAnalysis();
   $("sheet").replaceChildren(new Option("読み込み中…", ""));
+  $("sheet-count").textContent = ""; $("excluded-sheets-area").hidden = true;
   const file = $("file").files[0];
-  if (!file) return;
+  if (!file) { $("sheet").replaceChildren(new Option("Excelを選んでください", "")); return; }
   try {
     if (!file.name.toLowerCase().endsWith(".xlsx") || file.size > 8*1024*1024) throw new Error("8MB以下の.xlsxファイルを選んでください。");
     const encoded = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(",")[1]); reader.onerror = () => reject(new Error("ファイルを読めませんでした。")); reader.readAsDataURL(file); });
-    const result = await (await api("/api/inspect", {file: encoded})).json();
-    if ($("file").files[0] !== file) return;
-    fileData = encoded; $("sheet").replaceChildren(...result.sheets.map((n) => new Option(n, n))); message("");
-  } catch (e) { message(e.message); }
+    if (sequence !== fileSequence || $("file").files[0] !== file) return;
+    fileData = encoded; await inspectFile();
+  } catch (e) { if (sequence === fileSequence) { $("sheet").replaceChildren(new Option("ファイルを確認してください", "")); message(e.message); } }
 });
-for (const id of ["sheet", "date-confirmed"]) $(id).addEventListener("change", invalidate);
+$("sheet").addEventListener("change", applySelectedSheet);
+$("context-month").addEventListener("change", () => {
+  setDateBounds();
+  if (fileData) inspectFile($("sheet").value);
+  else { resetCandidates(); $("day").value = ""; $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false; }
+});
+$("use-sheet-date").addEventListener("click", async () => {
+  if (!selectedReport?.date || selectedReport.blocked) return;
+  resetCandidates(); $("day").value = selectedReport.date; $("date-confirmed").checked = false; $("sheet-review-confirmed").checked = false; renderSheetAnalysis();
+  await initialized; await loadCandidates(false);
+});
+for (const id of ["date-confirmed", "sheet-review-confirmed"]) $(id).addEventListener("change", invalidate);
 $("sample").addEventListener("click", async () => {
   try {
     const response = await api(`/api/daily-sample?day=${encodeURIComponent($("day").value)}`);
@@ -180,7 +262,7 @@ function payload() {
   ShiftInput.normalizeTimeFields();
   const selected = selectedRows(), breaks = {};
   for (const row of selected) breaks[row.dataset.id] = {mode: row.querySelector(".rest-mode").value, start: row.querySelector(".rest-start").value, end: row.querySelector(".rest-end").value};
-  return {file: fileData, sheet: $("sheet").value, day: $("day").value, date_confirmed: $("date-confirmed").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
+  return {file: fileData, sheet: $("sheet").value, day: $("day").value, context_month: $("context-month").value, date_confirmed: $("date-confirmed").checked, sheet_review_confirmed: $("sheet-review-confirmed").checked, selected_ids: selected.map((r) => Number(r.dataset.id)), breaks, version};
 }
 function appendRow(target, values, conflict=false) {
   const row = document.createElement("tr"); if (conflict) row.className = "conflict";
@@ -191,6 +273,8 @@ $("preview").addEventListener("click", async () => {
   invalidate();
   if (!version || loadedDay !== $("day").value) { message("対象日の候補を読み込んでください。"); return; }
   if (!fileData) { message("Excelの読み込みが終わってから操作してください。"); return; }
+  if (!selectedReport) { message("反映するシフト表を候補から選んでください。"); return; }
+  if (selectedReport.blocked) { message("シートの日付に修正が必要です。Excelのコピーを修正して選び直してください。"); return; }
   const data = payload(); $("preview").disabled = true;
   try {
     const result = await (await api("/api/daily-preview", data)).json();

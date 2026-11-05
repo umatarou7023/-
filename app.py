@@ -19,6 +19,7 @@ from shifts import InputError, read_book, make_plan, export_book, sample_book, p
 from daily_shifts import (parse_roster, target_day, daily_candidates, make_daily_plan,
                           patch_daily_excel, fingerprint, sample_daily_book)
 from break_rules import parse_break_settings, default_break_settings, apply_break_rules
+from sheet_matching import inspect_sheets
 
 ROOT = Path(__file__).parent
 
@@ -273,13 +274,15 @@ def create_app(config=None):
     @app.post("/api/<action>")
     @admin_required
     def excel_action(action):
-        if action not in {"inspect", "preview", "export", "daily-preview", "daily-export"}:
+        if action not in {"inspect", "preview", "export", "daily-preview", "daily-export", "daily-inspect"}:
             return jsonify(error="操作がありません。"), 404
         data = json_data()
         book = read_book(data.get("file", ""))
         try:
             if action == "inspect":
                 return jsonify(sheets=book.sheetnames)
+            if action == "daily-inspect":
+                return jsonify(inspect_sheets(book, data.get("context_month", "")))
             if action.startswith("daily-"):
                 people, version, settings, info, excel = daily_context(data.get("day"))
                 if data.get("version") != version:
