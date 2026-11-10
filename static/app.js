@@ -26,7 +26,7 @@ $("copy-link").addEventListener("click", async () => {
 $("open-form").addEventListener("click", () => { if (inviteUrl) window.open(inviteUrl, "_blank", "noopener,noreferrer"); });
 $("logout").addEventListener("click", async () => { await request("/api/logout", {}); location.href = "/login"; });
 $("load-submissions").addEventListener("click", async () => {
-  if ($("text").value.trim() && !window.confirm("入力欄の内容を、対象月の最新の提出内容に置き換えますか？")) return;
+  if ($("text").value.trim() && !window.confirm("入力欄の内容を、対象月の日ごとの最新希望に置き換えますか？")) return;
   const month = $("month").value;
   try {
     const response = await fetch(`/api/submissions?month=${encodeURIComponent(month)}`);
@@ -35,7 +35,7 @@ $("load-submissions").addEventListener("click", async () => {
     if (month !== $("month").value) return;
     if (!result.people.length) { message("この月の提出はまだありません。入力欄は変更していません。"); return; }
     $("text").value = result.text;
-    $("submission-summary").textContent = result.people.map((p) => `${p.name}：${p.count}日分（${new Date(p.submitted_at).toLocaleString("ja-JP")}）`).join(" / ");
+    $("submission-summary").textContent = result.people.map((p) => `${p.name}：合計${p.count}日分（最終提出：${new Date(p.submitted_at).toLocaleString("ja-JP")}）`).join(" / ");
     invalidate(); message(`${result.people.length}人分の提出を読み込みました。`);
   } catch (error) { message(error.message); }
 });

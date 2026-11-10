@@ -56,19 +56,27 @@ def daily_candidates(records, roster, day):
     target_day(day)
     members = {normalize_name(name): (role, order, name)
                for role, names in roster.items() for order, name in enumerate(names)}
-    result = []
+    result, day_records = [], []
     for record in records:
+        source = record.get("day_sources", {}).get(day, record)
         for row in record["rows"]:
-            if row["date"] != day or row["shift"] == "休み":
+            if row["date"] != day:
+                continue
+            # 別の日の追加提出で、この日の受付番号や確認済みプレビューを変えない。
+            day_records.append({"id": source["id"], "row": row,
+                                "submitted_at": source.get("submitted_at", ""),
+                                "first_id": record.get("first_id", record["id"]),
+                                "first_submitted_at": record.get("first_submitted_at", record.get("submitted_at", ""))})
+            if row["shift"] == "休み":
                 continue
             member = members.get(normalize_name(row["name"]))
-            result.append({"id": record["id"], "name": member[2] if member else row["name"],
+            result.append({"id": source["id"], "name": member[2] if member else row["name"],
                            "role": member[0] if member else "", "order": member[1] if member else 0,
                            "submission_order": record.get("first_id", record["id"]),
                            "first_submitted_at": record.get("first_submitted_at", record.get("submitted_at", "")),
                            "shift": row["shift"], "issue": "" if member else "スタッフ一覧に未登録"})
-    # 休みへの再提出や、その日の希望の削除も、読み込み済み画面を無効にする。
-    return result, fingerprint({"day": day, "records": records, "roster": roster})
+    # 「休み」への変更も含め、この日に関係する提出と一覧だけで再確認を判定する。
+    return result, fingerprint({"day": day, "records": day_records, "roster": roster})
 
 
 def validate_template(book, sheet_name):

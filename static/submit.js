@@ -43,13 +43,13 @@ $("submit-form").addEventListener("submit", async (event) => {
     return [{date: row.dataset.date, shift: mode === "off" ? "休み" : `${times[0].value}-${times[1].value}`}];
   });
   if (!days.length) { message("1日以上のシフトを選んでください。"); return; }
-  if (!window.confirm(`${$("name").value}さんの ${$("month").value} の希望 ${days.length}日分を提出します。よろしいですか？`)) return;
+  if (!window.confirm(`${$("name").value}さんの ${$("month").value} の希望 ${days.length}日分を追加・更新します。未入力の日の以前の希望は残します。提出しますか？`)) return;
   $("send").disabled = true;
   try {
     const response = await fetch("/api/submit", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key, name: $("name").value, month: $("month").value, days})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error);
-    message(`提出できました！ 受付番号：${result.receipt} ／ ${result.count}日分。この画面を閉じて大丈夫です。修正する場合は、全日分の希望をもう一度提出してください。`);
+    message(`提出できました！ 受付番号：${result.receipt} ／ 今回${result.count}日分を追加・更新しました。未入力の日の以前の希望は残っています。追加・修正は必要な日だけ再提出できます。勤務の確定は責任者からの連絡を確認してください。`);
     $("confirm").checked = false;
   } catch (error) { message(error.message || "通信できませんでした。接続を確認してください。"); }
   finally { $("send").disabled = false; $("status").scrollIntoView({behavior: "smooth", block: "center"}); }

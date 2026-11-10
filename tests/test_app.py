@@ -55,7 +55,7 @@ class WebTests(unittest.TestCase):
         self.login()
         self.assertEqual(len(self.get("/api/submissions?month=2026-10").json["people"]), 1)
 
-    def test_latest_month_submission_replaces_previous_whole_month(self):
+    def test_partial_resubmission_preserves_other_dates(self):
         self.post("/api/submit", self.submission())
         data = self.submission()
         data["name"] = "山田太郎"
@@ -64,8 +64,9 @@ class WebTests(unittest.TestCase):
         self.login()
         result = self.get("/api/submissions?month=2026-10").json
         self.assertEqual(len(result["people"]), 1)
-        self.assertNotIn("2026-10-20", result["text"])
+        self.assertIn("2026-10-20 17:00-22:00", result["text"])
         self.assertIn("2026-10-21 休み", result["text"])
+        self.assertEqual(result["people"][0]["count"], 2)
 
     def test_invalid_invite_and_bad_dates_are_not_stored(self):
         data = self.submission()

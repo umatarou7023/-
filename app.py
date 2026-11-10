@@ -185,16 +185,23 @@ def create_app(config=None):
     def latest_records(month):
         with sqlite3.connect(db_file) as db:
             records = db.execute("""
-                SELECT s.id,s.name,s.rows_json,s.submitted_at,x.first_id,f.submitted_at
-                FROM submissions s
-                JOIN (SELECT name_key,MAX(id) AS latest,MIN(id) AS first_id
-                      FROM submissions WHERE month=? GROUP BY name_key) x ON s.id=x.latest
-                JOIN submissions f ON f.id=x.first_id
-                ORDER BY x.first_id
+                SELECT id,name,name_key,rows_json,submitted_at
+                FROM submissions WHERE month=? ORDER BY id
             """, (month,)).fetchall()
-        return [{"id": number, "name": name, "rows": json.loads(content), "submitted_at": stamp,
-                 "first_id": first_id, "first_submitted_at": first_stamp}
-                for number, name, content, stamp, first_id, first_stamp in records]
+        # 履歴は書き換えず、送信された日だけを置き換える。省略日は前の希望を残す。
+        # 辞書の挿入順で、従来の「その月の初回提出順」も維持する。
+        people = {}
+        for number, name, key, content, stamp in records:
+            person = people.setdefault(key, {"first_id": number, "first_submitted_at": stamp,
+                                             "days": {}, "day_sources": {}})
+            person.update(id=number, name=name, submitted_at=stamp)
+            for row in json.loads(content):
+                person["days"][row["date"]] = row
+                person["day_sources"][row["date"]] = {"id": number, "submitted_at": stamp}
+        return [{"id": p["id"], "name": p["name"], "submitted_at": p["submitted_at"],
+                 "first_id": p["first_id"], "first_submitted_at": p["first_submitted_at"],
+                 "rows": [p["days"][day] for day in sorted(p["days"])], "day_sources": p["day_sources"]}
+                for p in people.values()]
 
     def get_roster():
         with sqlite3.connect(db_file) as db:
