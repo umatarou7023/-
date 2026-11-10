@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>設定｜シフト便</title><link rel="stylesheet" href="/style.css"><script src="/settings.js" defer></script></head>
 <body><main>
-  <header><span class="badge">管理者用 · ベータ版</span><h1>設定</h1><p>Excelへの反映方法を設定します。<br>保存した内容は、次に開いたときも使います。</p><nav class="page-nav"><a href="/daily">日別管理画面へ戻る</a><a href="/">提出リンク・月別表の管理画面</a></nav></header>
+  <header><span class="badge">管理者用 · ベータ版</span><h1>設定</h1><p>Excelへの反映方法と、アプリ内データの保存・削除を設定します。<br>保存した設定は、次に開いたときも使います。</p><nav class="page-nav"><a href="/daily">日別管理画面へ戻る</a><a href="/">提出リンク・月別表の管理画面</a></nav></header>
   <section>
     <h2>Excelの数式補完</h2>
     <form id="excel-settings-form">
@@ -13,5 +13,50 @@
     </form>
     <p id="save-status" role="status" aria-live="polite">設定を読み込んでいます…</p>
   </section>
+  <section>
+    <h2>提出された希望・履歴の自動削除</h2>
+    <p>勤務希望の前半（1〜15日）・後半（16日〜月末）の<strong>最終日から指定日数後</strong>に、その半月の全員分の希望と過去の変更履歴をまとめて削除します。提出した日から数える設定ではありません。<a href="/settings#cleanup-help">削除対象について</a></p>
+    <p>60日の例：2026年11月1〜15日分は<strong>2027年1月14日</strong>、16〜30日分は<strong>2027年1月29日</strong>が削除対象になります。</p>
+    <form id="retention-form">
+      <label>半月の最終日から何日残すか<input id="retention-days" type="number" min="1" max="3650" step="1" value="60" required disabled></label>
+      <p><strong>月ごとにON／OFFを選びます。初期状態はすべてOFFです。</strong> 新しい月も自動ではONになりません。</p>
+      <div id="retention-months"></div>
+      <div class="grid equal"><label>設定する対象月を追加<input id="retention-add-value" type="month"></label><div><button id="retention-add-month" type="button" class="secondary" disabled>対象月を追加（OFF）</button></div></div>
+      <button id="retention-preview" type="submit" disabled>自動削除の設定内容を確認する</button>
+    </form>
+    <div id="retention-review" class="data-review" hidden>
+      <p id="retention-summary"></p>
+      <label id="retention-confirm-wrap" class="check" hidden><input id="retention-confirmed" type="checkbox">期限を過ぎた希望・履歴を、保存時に今すぐ削除することを確認しました</label>
+      <button id="retention-save" type="button">この設定を保存する</button>
+    </div>
+    <p id="retention-status" role="status" aria-live="polite">設定を読み込んでいます…</p>
+    <p class="small">アプリ起動時と、起動中は約1時間ごとに確認します。PCやアプリが停止中の分は、次の起動時に確認します。ONの月では、期限を過ぎた日を再提出することもできません。スタッフ一覧・休憩設定・Excelファイルは、この自動削除では変更しません。</p>
+  </section>
+  <section>
+    <h2>提出された希望・履歴を手動で削除</h2>
+    <p>選んだ月の全月・前半・後半だけを削除できます。<strong>その期間の全員分を、過去の変更履歴も含めて削除</strong>します。残りの期間、スタッフ一覧、保存設定は残します。</p>
+    <form id="submission-delete-form"><div class="grid equal">
+      <label>削除する対象月<input id="submission-delete-month" type="month" required></label>
+      <label>削除する期間<select id="submission-delete-part"><option value="all">全月</option><option value="first">前半（1〜15日）</option><option value="second">後半（16日〜月末）</option></select></label>
+    </div><button type="submit" class="secondary">希望・履歴の削除内容を確認する</button></form>
+    <div id="submission-delete-review" class="data-review" hidden><p id="submission-delete-summary"></p>
+      <label class="check"><input id="submission-delete-confirmed" type="checkbox">対象期間と件数を確認しました。アプリ内の削除は取り消せません</label>
+      <button id="submission-delete-execute" type="button" class="danger" disabled>この期間の希望・履歴を削除する</button>
+    </div><p id="submission-delete-status" role="status" aria-live="polite"></p>
+  </section>
+  <section>
+    <h2>スタッフ一覧から削除</h2>
+    <p>一覧から外す人を選んでください。<strong>ここでは提出済みの希望・履歴は消しません。</strong> 上の期間削除を使う場合、その期間の全員分が対象です。一覧から外した人は、日別管理画面で未登録の扱いになります。個別の提出禁止にはなりません。</p>
+    <form id="roster-delete-form">
+      <label class="check"><input id="roster-delete-all" type="checkbox" disabled>表示されているスタッフを全員選ぶ</label>
+      <div id="roster-delete-list">スタッフ一覧を読み込んでいます…</div>
+      <button id="roster-delete-preview" type="submit" class="secondary" disabled>スタッフ一覧の削除内容を確認する</button>
+    </form>
+    <div id="roster-delete-review" class="data-review" hidden><p id="roster-delete-summary"></p>
+      <label class="check"><input id="roster-delete-confirmed" type="checkbox">一覧から削除する人を確認しました</label>
+      <button id="roster-delete-execute" type="button" class="danger" disabled>選んだ人をスタッフ一覧から削除する</button>
+    </div><p id="roster-delete-status" role="status" aria-live="polite"></p>
+  </section>
+  <aside id="cleanup-help">削除するのは、このアプリの保存データです。ダウンロード済みExcel、手動バックアップ、別のPCや外部サービスに保存したコピーは消えません。削除後は、開いていた日別管理画面も再読み込みしてください。</aside>
   <aside>設定は、このアプリの登録名・提出内容と同じ場所に保存します。ベータ起動では <code>beta-data</code> を残しておけば、アプリを再起動しても設定を使えます。</aside>
 </main></body></html>

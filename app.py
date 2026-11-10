@@ -20,6 +20,7 @@ from daily_shifts import (parse_roster, target_day, daily_candidates, make_daily
                           patch_daily_excel, fingerprint, sample_daily_book)
 from break_rules import parse_break_settings, default_break_settings, apply_break_rules
 from sheet_matching import inspect_sheets
+from data_retention import DataRetention
 
 ROOT = Path(__file__).parent
 
@@ -52,6 +53,16 @@ def create_app(config=None):
         db.execute("CREATE TABLE IF NOT EXISTS submissions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, name_key TEXT NOT NULL, month TEXT NOT NULL, rows_json TEXT NOT NULL, submitted_at TEXT NOT NULL)")
         db.execute("CREATE INDEX IF NOT EXISTS submissions_month ON submissions(month)")
         db.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        db.execute("CREATE TABLE IF NOT EXISTS submission_priorities (month TEXT NOT NULL, name_key TEXT NOT NULL, first_id INTEGER NOT NULL, first_submitted_at TEXT NOT NULL, PRIMARY KEY(month,name_key))")
+        db.execute("""INSERT OR IGNORE INTO submission_priorities
+                      SELECT s.month,s.name_key,s.id,s.submitted_at FROM submissions s
+                      JOIN (SELECT month,name_key,MIN(id) AS first_id FROM submissions GROUP BY month,name_key) f
+                      ON s.id=f.first_id""")
+    retention = DataRetention(db_file, app.config["SECRET_KEY"], app.config.get("RETENTION_TODAY"))
+    app.extensions["data_retention"] = retention
+    retention.run_due()
+    if not app.config["TESTING"]:
+        retention.start(app.logger)
 
     def admin_required(fn):
         @wraps(fn)
@@ -166,8 +177,13 @@ def create_app(config=None):
         rows = parse_lines("\n".join(lines), month)
         stamp = datetime.now(timezone.utc).isoformat()
         with sqlite3.connect(db_file, timeout=15) as db:
+            # 削除設定の保存と同じ書き込みロック下で、期限切れの日を再登録しない。
+            db.execute("BEGIN IMMEDIATE")
+            retention.validate_submission(db, rows)
             cursor = db.execute("INSERT INTO submissions(name,name_key,month,rows_json,submitted_at) VALUES(?,?,?,?,?)", (name.strip(), normalize_name(name), month, json.dumps(rows, ensure_ascii=False), stamp))
             number = cursor.lastrowid
+            db.execute("INSERT OR IGNORE INTO submission_priorities(month,name_key,first_id,first_submitted_at) VALUES(?,?,?,?)",
+                       (month, normalize_name(name), number, stamp))
         return jsonify(ok=True, receipt=number, count=len(rows))
 
     @app.get("/api/submissions")
@@ -185,14 +201,15 @@ def create_app(config=None):
     def latest_records(month):
         with sqlite3.connect(db_file) as db:
             records = db.execute("""
-                SELECT id,name,name_key,rows_json,submitted_at
-                FROM submissions WHERE month=? ORDER BY id
+                SELECT s.id,s.name,s.name_key,s.rows_json,s.submitted_at,p.first_id,p.first_submitted_at
+                FROM submissions s LEFT JOIN submission_priorities p ON s.month=p.month AND s.name_key=p.name_key
+                WHERE s.month=? ORDER BY s.id
             """, (month,)).fetchall()
         # 履歴は書き換えず、送信された日だけを置き換える。省略日は前の希望を残す。
-        # 辞書の挿入順で、従来の「その月の初回提出順」も維持する。
+        # 一部の履歴を削除した後も、保存した「その月の初回提出順」で並べる。
         people = {}
-        for number, name, key, content, stamp in records:
-            person = people.setdefault(key, {"first_id": number, "first_submitted_at": stamp,
+        for number, name, key, content, stamp, first_id, first_stamp in records:
+            person = people.setdefault(key, {"first_id": first_id or number, "first_submitted_at": first_stamp or stamp,
                                              "days": {}, "day_sources": {}})
             person.update(id=number, name=name, submitted_at=stamp)
             for row in json.loads(content):
@@ -201,7 +218,7 @@ def create_app(config=None):
         return [{"id": p["id"], "name": p["name"], "submitted_at": p["submitted_at"],
                  "first_id": p["first_id"], "first_submitted_at": p["first_submitted_at"],
                  "rows": [p["days"][day] for day in sorted(p["days"])], "day_sources": p["day_sources"]}
-                for p in people.values()]
+                for p in sorted(people.values(), key=lambda person: person["first_id"])]
 
     def get_roster():
         with sqlite3.connect(db_file) as db:
@@ -249,6 +266,31 @@ def create_app(config=None):
             with sqlite3.connect(db_file) as db:
                 db.execute("INSERT INTO settings(name,value) VALUES('roster',?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", (json.dumps(value, ensure_ascii=False),))
         return jsonify(roster=get_roster())
+
+    @app.get("/api/retention-settings")
+    @admin_required
+    def retention_settings_get():
+        return jsonify(retention.info())
+
+    @app.post("/api/retention-preview")
+    @admin_required
+    def retention_preview():
+        return jsonify(retention.preview_settings(json_data()))
+
+    @app.post("/api/retention-settings")
+    @admin_required
+    def retention_settings_save():
+        return jsonify(retention.save_settings(json_data()))
+
+    @app.post("/api/data-deletion-preview")
+    @admin_required
+    def data_deletion_preview():
+        return jsonify(retention.preview_deletion(json_data()))
+
+    @app.post("/api/data-delete")
+    @admin_required
+    def data_delete():
+        return jsonify(retention.delete(json_data()))
 
     def daily_context(day):
         day = target_day(day).isoformat()
